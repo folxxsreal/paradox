@@ -1,0 +1,13 @@
+{
+  "name": "paradox-systems",
+  "version": "1.0.0",
+  "description": "Paradox Systems Website",
+  "main": "index.html",
+  "dependencies": {
+    "nodemailer": "^6.9.8"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'Build complete'"
+  }
+}

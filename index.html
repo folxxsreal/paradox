@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paradox Systems</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@600&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400&display=swap');
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Poppins', sans-serif;
+      }
+
+      body {
+        background-color: #f8f9fa;
+        color: #333;
+        overflow-x: hidden;
+      }
+
+      /* Título principal */
+      .main-title {
+        font-family: 'Rubik', sans-serif;
+        font-weight: 600;
+        font-size: 6.5rem;
+        margin-bottom: 1rem;
+        text-align: center;
+        opacity: 0;
+        transform: translateY(-20px);
+        animation: fadeInDown 1s ease forwards;
+      }
+
+      /* Subtítulo con animación de escritura */
+      .typing-subtitle {
+        font-family: 'Lora', serif;
+        font-weight: 400;
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        opacity: 1;
+        display: inline-block;
+        margin: 0 auto 2rem auto;
+        position: relative;
+      }
+
+      .typing-subtitle::after {
+        content: '|';
+        color: #0077cc;
+        animation: blink-caret 0.75s step-end infinite;
+        position: absolute;
+      }
+
+      @keyframes blink-caret {
+
+        from,
+        to {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0;
+        }
+      }
+
+      /* Navigation */
+      .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 5%;
+        background-color: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        position: fixed;
+        width: 100%;
+        top: 0;
+        z-index: 1000;
+        transition: all 0.3s ease;
+      }
+
+      .logo {
+        height: 50px;
+        opacity: 0;
+        transform: translateY(-20px);
+        animation: fadeInDown 1s ease forwards;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 2rem;
+      }
+
+      .nav-links a {
+        text-decoration: none;
+        color: #333;
+        font-weight: 500;
+        position: relative;
+        transition: all 0.3s ease;
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      .nav-links a:nth-child(1) {
+        animation: fadeInDown 0.5s ease forwards 0.3s;
+      }
+
+      .nav-links a:nth-child(2) {
+        animation: fadeInDown 0.5s ease forwards 0.4s;
+      }
+
+      .nav-links a:nth-child(3) {
+        animation: fadeInDown 0.5s ease forwards 0.5s;
+      }
+
+      .nav-links a:nth-child(4) {
+        animation: fadeInDown 0.5s ease forwards 0.6s;
+      }
+
+      .nav-links a::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 2px;
+        bottom: -5px;
+        left: 0;
+        background-color: #0077cc;
+        transition: width 0.3s ease;
+      }
+
+      .nav-links a:hover::after {
+        width: 100%;
+      }
+
+      .nav-links a:hover {
+        color: #0077cc;
+      }
+
+      .menu-toggle {
+        display: none;
+        flex-direction: column;
+        cursor: pointer;
+      }
+
+      .menu-toggle span {
+        width: 25px;
+        height: 3px;
+        background-color: #333;
+        margin: 2px 0;
+        transition: all 0.3s ease;
+      }
+
+      /* Sections */
+      section {
+        padding: 80px 5%;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+      }
+
+      .section-title {
+        font-size: 2.5rem;
+        margin-bottom: 2rem;
+        position: relative;
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      .section-title::after {
+        content: '';
+        position: absolute;
+        width: 70px;
+        height: 3px;
+        background-color: #0077cc;
+        bottom: -10px;
+        left: 0;
+      }
+
+      /* Home Section */
+      #home {
+        background-color: #f8f9fa;
+        padding-top: 120px;
+      }
+
+      .hero-container {
+        position: relative;
+        width: 100%;
+        height: 60vh;
+        overflow: hidden;
+        margin-bottom: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .hero-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        animation: fadeIn 1.2s ease forwards 0.3s;
+      }
+
+      .description {
+        padding: 1rem 0;
+        max-width: 800px;
+        margin: 0 auto;
+        text-align: center;
+        line-height: 1.8;
+        font-size: 1.1rem;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUp 1s ease forwards 0.5s;
+      }
+
+      /* About Section */
+      #about {
+        background-color: #fff;
+      }
+
+      .about-content {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      .about-text {
+        flex: 1;
+        line-height: 1.8;
+      }
+
+      .about-image {
+        flex: 1;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .about-image img {
+        width: 100%;
+        height: auto;
+        transition: transform 0.5s ease;
+      }
+
+      .about-image:hover img {
+        transform: scale(1.05);
+      }
+
+      /* Services Section */
+      #services {
+        background-color: #f8f9fa;
+      }
+
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+        opacity: 1;
+        /* Cambiar de 0 a 1 */
+        transform: translateY(0);
+        /* Remover la animación inicial */
+      }
+
+      .service-card {
+        background-color: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      .service-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+      }
+
+      .service-image {
+        width: 100%;
+        height: 180px;
+        overflow: hidden;
+      }
+
+      .service-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+      }
+
+      .service-card:hover .service-image img {
+        transform: scale(1.1);
+      }
+
+      .service-content {
+        padding: 1.5rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .service-title {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        color: #0077cc;
+      }
+
+      .service-description {
+        margin-bottom: 1rem;
+        line-height: 1.6;
+        color: #666;
+        flex-grow: 1;
+      }
+
+      .service-link {
+        align-self: flex-start;
+        text-decoration: none;
+        color: #fff;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        background-color: #0077cc;
+        border-radius: 50px;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
+      }
+
+      .service-link:hover {
+        background-color: #005fa3;
+        transform: translateY(-3px);
+      }
+
+      /* Service Detail */
+      .service-detail {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        z-index: 2000;
+        overflow-y: auto;
+        padding: 80px 20px 40px;
+      }
+
+      .service-detail.active {
+        display: block;
+      }
+
+      .detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background-color: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+        animation: fadeIn 0.3s ease forwards;
+      }
+
+      .close-detail {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        z-index: 10;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .close-detail i {
+        font-size: 20px;
+        color: #333;
+      }
+
+      .detail-header {
+        background-color: #0077cc;
+        color: #fff;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .detail-header h3 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+      }
+
+      .detail-content {
+        padding: 2rem;
+      }
+
+      .detail-features {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+
+      .feature-text {
+        flex: 1;
+      }
+
+      .feature-text ul {
+        list-style-type: none;
+        margin-bottom: 1.5rem;
+      }
+
+      .feature-text ul li {
+        padding: 0.5rem 0;
+        position: relative;
+        padding-left: 1.5rem;
+      }
+
+      .feature-text ul li::before {
+        content: '•';
+        color: #0077cc;
+        font-size: 1.5em;
+        position: absolute;
+        left: 0;
+        top: 0.2rem;
+      }
+
+      .feature-images {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+
+      .feature-images img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .packages-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+      }
+
+      .package-card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        display: flex;
+        /* Añade esto */
+        flex-direction: column;
+        /* Añade esto */
+        height: 100%;
+        /* Asegura altura completa */
+      }
+
+      .package-features {
+        padding: 1.5rem;
+        flex-grow: 1;
+        /* Añade esto para que ocupe el espacio disponible */
+        display: flex;
+        /* Añade esto */
+        flex-direction: column;
+        /* Añade esto */
+      }
+
+      .package-price {
+        background-color: #f8f9fa;
+        padding: 1.5rem;
+        text-align: center;
+        font-weight: 600;
+        margin-top: auto;
+        /* Opcional: para empujar el precio hasta abajo */
+      }
+
+      .package-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      }
+
+      .package-header {
+        background-color: #0077cc;
+        color: #fff;
+        padding: 1.5rem;
+        text-align: center;
+      }
+
+      .package-header h4 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .package-image {
+        width: 100%;
+        height: 200px;
+      }
+
+      .package-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .package-features {
+        padding: 1.5rem;
+      }
+
+      .package-features h5 {
+        margin-bottom: 1rem;
+        color: #555;
+      }
+
+      .package-features ul {
+        list-style-type: none;
+        margin-bottom: 1.5rem;
+      }
+
+      .package-features ul li {
+        padding: 0.5rem 0;
+        position: relative;
+        padding-left: 1.5rem;
+        font-size: 0.9rem;
+      }
+
+      .price-label {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+      }
+
+      .price-amount {
+        font-size: 1.8rem;
+        color: #0077cc;
+      }
+
+      /* Contact Section */
+      #contact {
+        background-color: #fff;
+      }
+
+      .contact-container {
+        display: flex;
+        gap: 2rem;
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      .contact-info {
+        flex: 1;
+      }
+
+      .contact-form {
+        flex: 2;
+      }
+
+      /* Social Icons */
+      .social-container {
+        display: flex;
+        gap: 1rem;
+        padding: 2rem 0;
+      }
+
+      .social-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        text-decoration: none;
+        transition: transform 0.3s ease, background-color 0.3s ease;
+        opacity: 0;
+        transform: scale(0.8);
+      }
+
+      .social-icon:nth-child(1) {
+        animation: scaleIn 0.5s ease forwards 0.8s;
+        background-color: #25D366;
+      }
+
+      .social-icon:nth-child(2) {
+        animation: scaleIn 0.5s ease forwards 1s;
+        background-color: #3b5998;
+      }
+
+      .social-icon:hover {
+        transform: scale(1.1);
+      }
+
+      /* Footer */
+      footer {
+        background-color: #333;
+        color: #fff;
+        padding: 2rem 5%;
+        text-align: center;
+      }
+
+      /* Animations */
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.8);
+        }
+
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 992px) {
+        .services-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .about-content {
+          flex-direction: column;
+        }
+
+        .about-image {
+          width: 100%;
+        }
+
+        .contact-container {
+          flex-direction: column;
+        }
+
+        .detail-features {
+          flex-direction: column;
+        }
+
+        .feature-images {
+          display: flex;
+          justify-content: center;
+        }
+
+        .packages-container {
+          grid-template-columns: repeat(1, 1fr);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .nav-links {
+          position: fixed;
+          top: 70px;
+          right: -100%;
+          width: 70%;
+          height: calc(100vh - 70px);
+          background-color: white;
+          flex-direction: column;
+          padding: 2rem;
+          box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+          transition: right 0.3s ease;
+          gap: 1rem;
+        }
+
+        .nav-links.active {
+          right: 0;
+        }
+
+        .menu-toggle {
+          display: flex;
+        }
+
+        .services-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-container {
+          height: 40vh;
+        }
+
+        section {
+          padding: 60px 5%;
+        }
+
+        .packages-container {
+          grid-template-columns: 1fr;
+        }
+
+        .detail-container {
+          width: 95%;
+        }
+      }
+
+      /* Contact Form Styles */
+    .contact-form {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+    margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e1e5e9;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+    outline: none;
+    border-color: #0077cc;
+    }
+
+    .form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+    }
+
+    .form-row {
+    display: flex;
+    gap: 1rem;
+    }
+
+    .form-col {
+    flex: 1;
+    }
+
+    .submit-btn {
+    background-color: #0077cc;
+    color: white;
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    }
+
+    .submit-btn:hover {
+    background-color: #005fa3;
+    transform: translateY(-2px);
+    }
+
+    .submit-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    }
+
+    .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ffffff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+    }
+
+    .success-message {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    border: 1px solid #c3e6cb;
+    }
+
+    .error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    border: 1px solid #f5c6cb;
+    }
+
+    /* Contact Info Styles */
+    .contact-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    }
+
+    .contact-icon {
+    width: 50px;
+    height: 50px;
+    background-color: #0077cc;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    color: white;
+    font-size: 1.2rem;
+    }
+
+    .contact-details h4 {
+    margin-bottom: 0.5rem;
+    color: #333;
+    }
+
+    .contact-details p {
+    color: #666;
+    margin: 0;
+    }
+
+    @media (max-width: 768px) {
+    .form-row {
+        flex-direction: column;
+    }
+    }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar">
+      <img src="imagenes/icon.avif" alt="Paradox Systems Logo" class="logo">
+      <div class="nav-links">
+        <a href="#home">Inicio</a>
+        <a href="#about">Acerca de</a>
+        <a href="#services">Servicios</a>
+        <a href="#contact">Contacto</a>
+      </div>
+      <div class="menu-toggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </nav>
+    <!-- Home Section -->
+    <!-- Home Section -->
+    <section id="home">
+      <h1 class="main-title">Paradox Systems</h1>
+      <h2 class="typing-subtitle"></h2>
+      <div class="description">
+        <p>Paradox Systems es una empresa líder en soluciones de ingeniería de vanguardia, comprometida con la aplicación y el desarrollo de tecnología. Nos distinguimos en la industria por nuestro enfoque innovador, centrado en la inteligencia artificial, diseño de máquinas, robótica, energías renovables, desarrollo de software y la automatización de procesos.</p>
+      </div>
+      <div class="social-container">
+        <a href="#" class="social-icon">
+          <i class="fab fa-whatsapp"></i>
+        </a>
+        <a href="#" class="social-icon">
+          <i class="fab fa-facebook-f"></i>
+        </a>
+      </div>
+    </section>
+    <!-- About Section -->
+    <section id="about">
+      <h2 class="section-title" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">Acerca de Nosotros</h2>
+      <div class="about-content" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+        <div class="about-text">
+          <p>Paradox Systems somos un grupo de profesionales con amplia experiencia, cuya misión es encaminar el uso de la tecnología hacia un desarrollo sustentable, proporcionando a nuestros clientes el control de sus sistemas, recursos energéticos, materiales y naturales; nos enfocamos en ofrecer soluciones prácticas que permitan optimizar procesos existentes y mejorar la eficiencia operativa en distintos sectores; nuestro enfoque se basa en la integración tecnológica con una visión crítica y responsable del entorno; trabajamos de forma cercana con cada cliente para entender sus necesidades reales y ofrecer herramientas que se adapten a su contexto específico.</p>
+        </div>
+        <div class="about-image">
+          <img src="imagenes/equipo.jpg" alt="Equipo de Paradox Systems">
+        </div>
+      </div>
+    </section>
+    <!-- Services Section -->
+    <section id="services">
+      <h2 class="section-title" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">Nuestros Servicios</h2>
+      <div class="services-grid">
+        <!-- Service 1 - Casas Inteligentes -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/casa-inteligente.webp" alt="Casas Inteligentes">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Casas Inteligentes</h3>
+            <p class="service-description">Controla y monitorea tu casa desde cualquier lugar, incrementando su valor y evitando accidentes domésticos.</p>
+            <a href="#" class="service-link" data-service="casas-inteligentes">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 2 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/plantass.avif" alt="Plantas Solares">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Plantas Solares</h3>
+            <p class="service-description">Diseñamos e implementamos sistemas de energía solar adaptados a las necesidades específicas de cada cliente.</p>
+            <a href="#" class="service-link" data-service="plantas-solares">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 3 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/ingeneriam.jpg" alt="Ingeniería Marítima">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Ingeniería Marítima</h3>
+            <p class="service-description">Ofrecemos soluciones especializadas para entornos marítimos, combinando innovación y sostenibilidad.</p>
+            <a href="#" class="service-link" data-service="ingenieria-maritima">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 4 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/amtpc.jpg" alt="Automatización de Procesos">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Automatización de Procesos</h3>
+            <p class="service-description">Optimizamos los procesos industriales mediante tecnologías avanzadas de automatización y control.</p>
+            <a href="#" class="service-link" data-service="automatizacion-procesos">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 5 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/diseñodem.avif" alt="Diseño de Máquinas">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Diseño de Máquinas</h3>
+            <p class="service-description">Desarrollamos equipos y maquinaria personalizada según las especificaciones y requerimientos del cliente.</p>
+            <a href="#" class="service-link" data-service="diseno-maquinas">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 6 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/CableEst.jpg" alt="Cableado Estructurado">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Cableado Estructurado</h3>
+            <p class="service-description">Implementamos sistemas de cableado eficientes y organizados para facilitar la gestión de redes y comunicaciones.</p>
+            <a href="#" class="service-link" data-service="cableado-estructurado">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 7 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/practicas-desarollo-software.jpeg" alt="Desarrollo de Software">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Desarrollo de Software</h3>
+            <p class="service-description">Creamos soluciones de software a medida, desde aplicaciones web hasta sistemas de gestión empresarial.</p>
+            <a href="#" class="service-link" data-service="desarrollo-software">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 8 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/sistemas-contra-incendios-zenith.png" alt="Sistemas Contra Incendios">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Sistemas Contra Incendios</h3>
+            <p class="service-description">Diseñamos e instalamos sistemas de protección contra incendios que cumplen con todas las normativas de seguridad.</p>
+            <a href="#" class="service-link" data-service="sistemas-incendios">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+        <!-- Service 9 -->
+        <div class="service-card" style="opacity: 1; transform: translateY(0px); transition: 0.6s ease-out;">
+          <div class="service-image">
+            <img src="imagenes/camara-de-videovigilancia.jpg" alt="Videovigilancia y Control de Accesos">
+          </div>
+          <div class="service-content">
+            <h3 class="service-title">Videovigilancia y Control de Accesos</h3>
+            <p class="service-description">Implementamos sistemas de seguridad y control de acceso para proteger instalaciones y garantizar la tranquilidad.</p>
+            <a href="#" class="service-link" data-service="videovigilancia">Ver Más <i class="fas fa-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Contact Section (placeholder for now) -->
+    <section id="contact">
+    <h2 class="section-title">Contacto</h2>
+    <div class="contact-container">
+        <div class="contact-info">
+        <h3>Información de Contacto</h3>
+        <p style="margin-bottom: 2rem;">Estamos listos para ayudarte con tu próximo proyecto tecnológico.</p>
+        
+        <div class="contact-item">
+            <div class="contact-icon">
+            <i class="fas fa-envelope"></i>
+            </div>
+            <div class="contact-details">
+            <h4>Email</h4>
+            <p>info@paradoxsystems.com</p>
+            </div>
+        </div>
+
+        <div class="contact-item">
+            <div class="contact-icon">
+            <i class="fas fa-phone"></i>
+            </div>
+            <div class="contact-details">
+            <h4>Teléfono</h4>
+            <p>+52 612 123 4567</p>
+            </div>
+        </div>
+
+        <div class="contact-item">
+            <div class="contact-icon">
+            <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="contact-details">
+            <h4>Ubicación</h4>
+            <p>La Paz, Baja California Sur</p>
+            </div>
+        </div>
+        </div>
+        
+        <div class="contact-form">
+        <h3>Envíanos un mensaje</h3>
+        <div id="form-messages"></div>
+        <form id="contact-form">
+            <div class="form-row">
+            <div class="form-col">
+                <div class="form-group">
+                <label for="nombre">Nombre *</label>
+                <input type="text" id="nombre" name="nombre" required>
+                </div>
+            </div>
+            <div class="form-col">
+                <div class="form-group">
+                <label for="apellido">Apellido *</label>
+                <input type="text" id="apellido" name="apellido" required>
+                </div>
+            </div>
+            </div>
+
+            <div class="form-row">
+            <div class="form-col">
+                <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required>
+                </div>
+            </div>
+            <div class="form-col">
+                <div class="form-group">
+                <label for="telefono">Teléfono *</label>
+                <input type="tel" id="telefono" name="telefono" required>
+                </div>
+            </div>
+            </div>
+
+            <div class="form-group">
+            <label for="servicio">Servicio de Interés *</label>
+            <select id="servicio" name="servicio" required>
+                <option value="">Selecciona un servicio</option>
+                <option value="casas-inteligentes">Casas Inteligentes</option>
+                <option value="plantas-solares">Plantas Solares</option>
+                <option value="ingenieria-maritima">Ingeniería Marítima</option>
+                <option value="automatizacion-procesos">Automatización de Procesos</option>
+                <option value="diseno-maquinas">Diseño de Máquinas</option>
+                <option value="cableado-estructurado">Cableado Estructurado</option>
+                <option value="desarrollo-software">Desarrollo de Software</option>
+                <option value="sistemas-incendios">Sistemas Contra Incendios</option>
+                <option value="videovigilancia">Videovigilancia y Control de Accesos</option>
+                <option value="consultoria">Consultoría General</option>
+            </select>
+            </div>
+
+            <div class="form-group">
+            <label for="mensaje">Mensaje *</label>
+            <textarea id="mensaje" name="mensaje" placeholder="Cuéntanos sobre tu proyecto..." required></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">
+            <span id="btn-text">Enviar Mensaje</span>
+            <i class="fas fa-paper-plane" id="btn-icon"></i>
+            </button>
+        </form>
+        </div>
+    </div>
+    </section>
+    <!-- Service Detail Modal - Casas Inteligentes -->
+    <div id="casas-inteligentes-detail" class="service-detail">
+      <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Casas Inteligentes</h3>
+          <p>Control y automatización para su hogar</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <h4>Beneficios de una Casa Inteligente</h4>
+              <ul>
+                <li>Controla y monitorea tu casa desde cualquier lugar.</li>
+                <li>Olvida las claves de la alarma para siempre.</li>
+                <li>Incrementa el valor de tu casa.</li>
+                <li>Evita accidentes domésticos.</li>
+                <li>Controla todo desde un único sistema.</li>
+                <li>Colabora con un consumo energético y de agua responsable.</li>
+              </ul>
+              <h4>Nuestros Paquetes</h4>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/casainteligentectr.jpg" alt="Casa Inteligente Control">
+              <img src="imagenes/pantalla-alarma-inteligente-hogar.jpg" alt="Casa Inteligente Seguridad">
+            </div>
+          </div>
+          <div class="packages-container">
+            <!-- Paquete A -->
+            <div class="package-card">
+              <div class="package-header">
+                <h4>Paquete A</h4>
+              </div>
+              <div class="package-image">
+                <img src="imagenes/paquetea.avif" alt="Paquete A">
+              </div>
+              <div class="package-features">
+                <h5>Dispositivos que incluye:</h5>
+                <ul>
+                  <li>Cámara monitoreo HD interiores - Planta Baja (1)</li>
+                  <li>Cámara monitoreo HD exteriores - Fachada principal (1)</li>
+                  <li>Cerradura Inteligente - Puerta principal (1)</li>
+                  <li>Switches dimmeables inteligentes - Sala/comedor (1) / Recámara principal (1)</li>
+                  <li>Botones para escenas - Sala de TV (1)</li>
+                  <li>Sensores de Movimiento - Sala/comedor (1)</li>
+                  <li>Sensor de Apertura/Cierre de puertas - Entrada principal (1)</li>
+                  <li>Cerebro de control - Sala de TV (1)</li>
+                </ul>
+              </div>
+              <div class="package-price">
+                <p class="price-label">INVERSIÓN APROXIMADA</p>
+                <p class="price-amount">$40,000 MXN</p>
+              </div>
+            </div>
+            <!-- Paquete B -->
+            <div class="package-card">
+              <div class="package-header">
+                <h4>Paquete B</h4>
+              </div>
+              <div class="package-image">
+                <img src="imagenes/paqueteb.avif" alt="Paquete B">
+              </div>
+              <div class="package-features">
+                <h5>Dispositivos que incluye:</h5>
+                <ul>
+                  <li>Cámara monitoreo HD interiores - Planta Alta (1) / Planta Baja (1)</li>
+                  <li>Cámara monitoreo HD exteriores - Fachada principal (1)</li>
+                  <li>Cerradura Inteligente - Puerta principal (1)</li>
+                  <li>Switches dimmeables inteligentes - Sala/comedor (1) / Sala de TV (1)</li>
+                  <li>Botones para escenas - Sala de TV (1) / Planta Alta (1)</li>
+                  <li>Sensores de Movimiento - Sala/comedor (1) / Planta Alta (1)</li>
+                  <li>Sensor de Apertura/Cierre de puertas - Entrada principal (1) / Patio trasero (1) / Ventada fachada principal (1)</li>
+                  <li>Cerebro de control - Sala de TV (1)</li>
+                </ul>
+              </div>
+              <div class="package-price">
+                <p class="price-label">INVERSIÓN APROXIMADA</p>
+                <p class="price-amount">$60,000 MXN</p>
+              </div>
+            </div>
+            <!-- Aquí puedes añadir un tercer paquete si lo deseas -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="plantas-solares-detail" class="service-detail">
+      <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Plantas Solares</h3>
+          <p>Generamos electricidad usando energía solar directa.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;"> La energía fotovoltáica permite un ahorro sustancial de dinero, además de ayudar a reducir el calentamiento global producto del efecto invernadero que es casado por los gases generados durante la producción de energía en las centrales termoeléctricas. </div>
+              <div style="margin-bottom: 1em;"> Los sistemas de seguimiento solar aumentan la eficiencia de producción de los páneles hasta un 30% lo cual permite sacar el mayor provecho a estos sistemas. </div>
+              <div> Los paneles solares, además, requieren un mantenimiento mínimo y tienen una vida útil prolongada, que puede superar los 25 años. Esta durabilidad, sumada a la estabilidad de la fuente energética solar, los convierte en una opción confiable y rentable a largo plazo. Su modularidad permite escalar el sistema fácilmente, adaptándolo a las necesidades energéticas de cada usuario, ya sea en instalaciones residenciales, comerciales o industriales. </div>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/planta-solar-scaled.jpg" alt="Planta Solar">
+              <img src="imagenes/energía_solar-sostenibilidad-.avif" alt="Planta Solar">
+              <img src="imagenes/placas_solares-ventajas-energia-sol-sostenibilidad-casas-hogares-eficiencia-energetica.jpg" alt="Planta Solar">
+              <img src="imagenes/film.jpg" alt="Planta Solar">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="ingenieria-maritima-detail" class="service-detail">
+      <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Ingeniería Marítima</h3>
+          <p>Diseño y mantenimiento de embarcaciones.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <ul>
+                <li>Diseñamos soluciones integrales y adaptadas a las necesidades específicas de cada proyecto.</li>
+                <li>Apostamos por la innovación constante para enfrentar los desafíos únicos que presentan los entornos marinos.</li>
+                <li>Buscamos siempre equilibrar el avance tecnológico con el respeto y conservación del ecosistema marítimo.</li>
+              </ul>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/ingm.jpg" alt="Ingeniería Marítima">
+              <img src="imagenes/head_naval.jpg" alt="Ingeniería Marítima">
+              <img src="imagenes/ingenieria-naval.jpg" alt="Ingeniería Marítima">
+              <img src="imagenes/consultora-ingenieria-naval-01.jpg" alt="Ingeniería Marítima">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="automatizacion-procesos-detail" class="service-detail">
+      <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Automatización de Procesos</h3>
+          <p>Automatización eficiente de procesos industriales.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;"> La automatización de los procesos industriales permite aumentar los niveles de producción, disminuir la carga de trabajo humano en tareas repetitivas y eficientar el uso de los recursos energéticos y materiales. </div>
+              <ul>
+                <li>Programación de PLC’s y/o PAC’s.</li>
+                <li>Implementación de sistemas de control.</li>
+                <li>Integración de interfaces de Hombre-Máquina (HMI).</li>
+                <li>Instalación de sistemas de adquisición de datos (SCADA).</li>
+              </ul>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/autom.jpg" alt="Automatización de Procesos">
+              <img src="imagenes/automatización-de-procesos-industriales(1).webp" alt="Automatización de Procesos">
+              <img src="imagenes/tipos-de-procesos-automatizados-sepiia.webp" alt="Automatización de Procesos">
+              <img src="imagenes/automatización-procesos-industriales.jpg" alt="Automatización de Procesos">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="diseno-maquinas-detail" class="service-detail">
+      <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Diseño de Maquinas</h3>
+          <p>Diseño profesional y eficiente de máquinas.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;"> Diseñamos y construimos máquinas a la medida de tus necesidades específicas, asegurando soluciones eficientes y de alta calidad. Aplicamos las mejores prácticas de diseño mecatrónico, combinando ingeniería mecánica, electrónica y control para optimizar el rendimiento y la funcionalidad de cada proyecto. </div>
+              <div style="margin-bottom: 1em;"> Nuestro proceso se desarrolla en estricta conformidad con los estándares internacionales de calidad y seguridad, garantizando productos confiables y duraderos. Desde la conceptualización hasta la puesta en marcha, trabajamos de la mano contigo para entender tus requerimientos, adaptándonos a los desafíos técnicos y operativos propios de tu industria. </div>
+              <div style="margin-bottom: 1em;"> Contamos con un equipo que utiliza herramientas avanzadas de diseño asistido por computadora (CAD), simulación y prototipado rápido, asegurando precisión y eficiencia en cada etapa del desarrollo. </div>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/aaaa.png" alt="Diseño de Maquinas">
+              <img src="imagenes/Next_20Generation_20Design_20for_20the_20Industrial_20Machinery_20Industry_tcm27-57191.jpg" alt="Diseño de Maquinas">
+              <img src="imagenes/diseno-mecanico-de-equipos.webp" alt="Diseño de Maquinas">
+              <img src="imagenes/Figura-3-Diseno-parametrico-final-de-la-maquina-malacate-Fuente-Elaboracion-propia.png" alt="Diseño de Maquinas">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="cableado-estructurado-detail" class="service-detail">
+        <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Cableado Estructurado</h3>
+          <p>Cableado estructurado confiable, flexible y listo para voz, datos, video y energía.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;">Ofrecemos soluciones integrales de cableado estructurado diseñadas para optimizar la infraestructura tecnológica de tu empresa u organización. Nuestro servicio permite la transmisión eficiente de voz, datos, video, texto y energía (PoE) a través de un sistema organizado, escalable y de alto rendimiento.</div>
+              <div style="margin-bottom: 1em;">Con un esquema flexible que facilita futuras ampliaciones, reubicaciones o modificaciones, garantizamos una instalación limpia, segura y preparada para el crecimiento. Nos enfocamos en ofrecer una red confiable, fácil de administrar y con bajo costo de mantenimiento, cumpliendo con los estándares internacionales de calidad.</div>
+              <div style="margin-bottom: 1em;">Impulsa tu conectividad con una infraestructura sólida, moderna y preparada para las exigencias tecnológicas actuales.</div>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/Cableado-Estructurado-2023.webp" alt="Cableado Estructurado">
+              <img src="imagenes/Importancia-del-Cableado-Estructurado-Facility-Venezuela.webp" alt="Cableado Estructurado">
+              <img src="imagenes/cableadoE.jpg" alt="Cableado Estructurado">
+              <img src="imagenes/cableado-estructurado-portada.jpg" alt="Cableado Estructurado">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="desarrollo-software-detail" class="service-detail">
+        <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Desarollo de Software</h3>
+          <p>Desarrollamos aplicaciones web, móviles y de escritorio con integración de inteligencia artificial adaptadas a las necesidades de tu negocio.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;">Contamos con experiencia especializada en la industria para desarrollar cualquier tipo de aplicación web, móvil, de escritorio e híbrida, integrando inteligencia artificial según los requisitos y objetivos de su negocio.</div>
+              <div style="margin-bottom: 1em;">Nuestros servicios de mantenimiento y modernización de aplicaciones están diseñados para garantizar la escalabilidad, el rendimiento y la sostenibilidad de toda su infraestructura de software a medida que crece su negocio.</div>
+              <div style="margin-bottom: 1em;">Nuestros especialistas en implementación trabajarán con su equipo de TI para establecer objetivos y cronogramas detallados de implementación de software, que abarquen la configuración, las pruebas, el control del proyecto, la resolución de problemas y más.</div>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/La-tecnologia-del-futuro-5-avances-que-cambiaran-el-mundo-2000x1200-1.jpg" alt="Desarollo de Software">
+              <img src="imagenes/proyecto-desarrollo-software3_11zon-1024x684.webp" alt="Desarollo de Software">
+              <img src="imagenes/ah.png" alt="Desarollo de Software">
+              <img src="imagenes/images.jpg" alt="Desarollo de Software">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="sistemas-incendios-detail" class="service-detail">
+        <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Sistemas Contra Incendios</h3>
+          <p>Supresión de fuego con gas y rociadores para zonas críticas.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;">Con base en las necesidades del cliente, diseñamos sistemas integrados para salvaguardar la vida de las personas dentro del inmueble, así como prevenir daños y pérdidas materiales. Suministramos e instalamos los equipos necesarios de la mejor calidad de acuerdo con las normas de la NFPA.</div>
+              <div style="margin-bottom: 1em;">Implementamos sistemas de detección inteligente de humo y alarmas, integrando tecnologías avanzadas que permiten una respuesta inmediata, precisa y confiable ante cualquier tipo de emergencia.</div>
+              <div style="margin-bottom: 1em;">Implementamos sistemas automáticos de supresión de fuego mediante gases especiales, diseñados para proteger instalaciones críticas sin causar daños a equipos sensibles. También instalamos sistemas automáticos de rociadores tipo diluvio, ideales para áreas de alto riesgo, asegurando una respuesta rápida y eficaz ante incendios.</div>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/Bombas-contra-incendio.jpg" alt="Sistemas Contra Incendios">
+              <img src="imagenes/Importancia-de-los-sistemas-contra-incendios.png" alt="Sistemas contra Incendios">
+              <img src="imagenes/sisincendio3.jpg" alt="Sistemas Contra Incendios">
+              <img src="imagenes/images (1).jpg" alt="Sistemas Contra Incendios">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="videovigilancia-detail" class="service-detail">
+        <div class="detail-container">
+        <div class="close-detail">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="detail-header">
+          <h3>Videovigilancia y Control de Accesos</h3>
+          <p>Videovigilancia y control de acceso seguros y económicos.</p>
+        </div>
+        <div class="detail-content">
+          <div class="detail-features">
+            <div class="feature-text">
+              <div style="margin-bottom: 1em;">Contamos con las mejores opciones en sistemas de videovigilancia, diseñados para ofrecer una supervisión constante y clara de tus instalaciones, protegiendo lo que más importa.</div>
+              <div style="margin-bottom: 1em;">Además, implementamos soluciones de control de acceso que permiten gestionar y restringir el ingreso de manera segura y eficiente, adaptándose a las necesidades específicas de cada cliente.</div>
+              <div style="margin-bottom: 1em;">Todo esto garantizando un alto nivel de seguridad con un bajo costo de instalación, optimizando la inversión sin comprometer la calidad ni la confiabilidad del sistema.</div>
+            </div>
+            <div class="feature-images">
+              <img src="imagenes/3-2.jpg" alt="Sistemas contra Incendios">
+              <img src="imagenes/images (2).jpg" alt="Sistemas contra Incendios">
+              <img src="imagenes/cctv.png" alt="Sistemas contra Incendios">
+              <img src="imagenes/tipos-de-control-de-acceso-jpg-1.webp" alt="Sistemas contra Incendios">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      // Obtener todos los botones de "Ver Más"
+      const serviceButtons = document.querySelectorAll(".service-link");
+      const closeModalButtons = document.querySelectorAll(".close-detail");
+      const serviceDetails = document.querySelectorAll(".service-detail");
+      // Animación suave al hacer clic en los enlaces del menú
+      document.querySelectorAll('.nav-links a').forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetId = this.getAttribute('href'); // Obtiene el ID del enlace
+          const targetSection = document.querySelector(targetId);
+          if (targetSection) {
+            window.scrollTo({
+              top: targetSection.offsetTop - 70, // Ajustar para que no quede debajo del navbar
+              behavior: 'smooth'
+            });
+          }
+        });
+      });
+      // Abrir el modal cuando se hace clic en un servicio
+      serviceButtons.forEach(button => {
+        button.addEventListener("click", function(e) {
+          e.preventDefault();
+          const serviceId = this.getAttribute("data-service");
+          const modal = document.getElementById(serviceId + "-detail");
+          if (modal) {
+            modal.classList.add("active");
+            document.body.style.overflow = "hidden"; // Evita el scroll cuando el modal está abierto
+          }
+        });
+      });
+      // Cerrar el modal cuando se hace clic en la "X"
+      closeModalButtons.forEach(button => {
+        button.addEventListener("click", function() {
+          this.closest(".service-detail").classList.remove("active");
+          document.body.style.overflow = "auto";
+        });
+      });
+      // Cerrar el modal si el usuario hace clic fuera del contenido
+      serviceDetails.forEach(modal => {
+        modal.addEventListener("click", function(e) {
+          if (e.target === this) {
+            this.classList.remove("active");
+            document.body.style.overflow = "auto";
+          }
+        });
+      });
+      // Aplicar animaciones a los elementos al hacer scroll
+      const animatedElements = document.querySelectorAll(".section-title, .service-card, .about-content, .contact-container");
+
+      function animateOnScroll() {
+        const scrollY = window.scrollY;
+        animatedElements.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          if (rect.top < window.innerHeight * 0.85) {
+            el.style.opacity = 1;
+            el.style.transform = "translateY(0)";
+            el.style.transition = "all 0.6s ease-out";
+          }
+        });
+      }
+      // Ejecutar la animación cuando se haga scroll
+      window.addEventListener("scroll", animateOnScroll);
+      // Correr la animación al cargar la página
+      animateOnScroll();
+      // Animación de escritura
+      const subtitle = document.querySelector('.typing-subtitle');
+      const text = 'Soluciones tecnológicas innovadoras';
+      let index = 0;
+
+      function typeWriter() {
+        if (index < text.length) {
+          subtitle.textContent = text.slice(0, index + 1);
+          index++;
+          setTimeout(typeWriter, 100); // Velocidad de escritura (100ms por letra)
+        }
+      }
+      // Iniciar la animación después de 1 segundo
+      setTimeout(() => {
+        subtitle.textContent = '';
+        typeWriter();
+      }, 1000);
+
+            // Manejar el envío del formulario
+        document.getElementById('contact-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnIcon = document.getElementById('btn-icon');
+        const messagesDiv = document.getElementById('form-messages');
+        
+        // Cambiar estado del botón a cargando
+        submitBtn.disabled = true;
+        btnText.textContent = 'Enviando...';
+        btnIcon.className = 'loading-spinner';
+        
+        // Limpiar mensajes anteriores
+        messagesDiv.innerHTML = '';
+        
+        // Recopilar datos del formulario
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData);
+        
+        try {
+            const response = await fetch('/api/contact', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+            messagesDiv.innerHTML = '<div class="success-message">¡Mensaje enviado correctamente! Te contactaremos pronto.</div>';
+            document.getElementById('contact-form').reset();
+            } else {
+            throw new Error('Error en el servidor');
+            }
+        } catch (error) {
+            messagesDiv.innerHTML = '<div class="error-message">Hubo un error al enviar el mensaje. Por favor intenta de nuevo.</div>';
+        } finally {
+            // Restaurar estado del botón
+            submitBtn.disabled = false;
+            btnText.textContent = 'Enviar Mensaje';
+            btnIcon.className = 'fas fa-paper-plane';
+        }
+        });
+    });
+  </script>
+</html>
