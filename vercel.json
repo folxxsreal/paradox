@@ -1,10 +1,12 @@
 {
+  "buildCommand": "echo 'Static site - no build needed'",
+  "outputDirectory": "public",
   "functions": {
     "api/chat.js": {
       "maxDuration": 10
+    },
+    "api/contact.js": {
+      "maxDuration": 10
     }
-  },
-  "env": {
-    "GEMINI_API_KEY": "@gemini-api-key"
   }
 }
