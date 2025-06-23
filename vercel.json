@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/chat.js": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "GEMINI_API_KEY": "@gemini-api-key"
+  }
+}
