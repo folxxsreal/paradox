@@ -2,6 +2,7 @@
   "name": "paradox-systems",
   "version": "1.0.0",
   "description": "Paradox Systems Website",
+  "type": "module",
   "scripts": {
     "build": "echo 'Build complete'"
   },

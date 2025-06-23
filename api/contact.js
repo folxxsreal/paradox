@@ -1,9 +1,23 @@
-import nodemailer from 'nodemailer';
-
 export default async function handler(req, res) {
+  // Agregar headers CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Método no permitido' });
   }
+
+  // Importación dinámica de nodemailer
+  const nodemailer = await import('nodemailer');
+  
+  // Debug: verificar variables de entorno
+  console.log('GMAIL_USER exists:', !!process.env.GMAIL_USER);
+  console.log('GMAIL_APP_PASSWORD exists:', !!process.env.GMAIL_APP_PASSWORD);
 
   const { nombre, apellido, email, telefono, servicio, mensaje } = req.body;
 
@@ -13,14 +27,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Configurar nodemailer con Gmail
-    const transporter = nodemailer.createTransporter({
+    // Configurar nodemailer con Gmail - usar .default para ES modules
+    const transporter = nodemailer.default.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.GMAIL_USER, // Tu email de Gmail
-        pass: process.env.GMAIL_APP_PASSWORD, // Tu contraseña de aplicación de Gmail
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
       },
     });
+
+    // Verificar conexión SMTP
+    console.log('Verificando conexión SMTP...');
+    await transporter.verify();
+    console.log('Conexión SMTP exitosa');
 
     // Mapear códigos de servicio a nombres legibles
     const servicios = {
@@ -41,7 +60,7 @@ export default async function handler(req, res) {
     // Configurar el email
     const mailOptions = {
       from: process.env.GMAIL_USER,
-      to: process.env.GMAIL_USER, // Tu email donde quieres recibir los mensajes
+      to: process.env.GMAIL_USER,
       subject: `Nuevo contacto de Paradox Systems - ${servicioNombre}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -74,11 +93,19 @@ export default async function handler(req, res) {
     };
 
     // Enviar el email
+    console.log('Enviando email...');
     await transporter.sendMail(mailOptions);
+    console.log('Email enviado exitosamente');
 
     res.status(200).json({ message: 'Email enviado correctamente' });
   } catch (error) {
-    console.error('Error enviando email:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error completo:', error);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    res.status(500).json({ 
+      message: 'Error interno del servidor',
+      error: error.message,
+      code: error.code 
+    });
   }
 }
