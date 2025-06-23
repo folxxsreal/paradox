@@ -1,6 +1,6 @@
-import * as nodemailer from 'nodemailer';
+const nodemailer = require('nodemailer');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Agregar headers CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
             
             <div style="background-color: white; padding: 15px; border-radius: 5px;">
               <h3 style="color: #333; margin-top: 0;">Mensaje:</h3>
-              <p style="line-height: 1.6;">${mensaje}</p>
+              <p style="line-height: 1.6;">${mensaje</p>
             </div>
           </div>
           
@@ -107,4 +107,4 @@ export default async function handler(req, res) {
       code: error.code 
     });
   }
-}
+};
