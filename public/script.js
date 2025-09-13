@@ -1,3 +1,13 @@
+// Mover estas funciones ANTES del DOMContentLoaded
+function enableSubmitButton() {
+    document.getElementById('submit-btn').disabled = false;
+}
+
+function resetRecaptcha() {
+    grecaptcha.reset();
+    document.getElementById('submit-btn').disabled = true;
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     // Obtener todos los botones de "Ver Más"
     const serviceButtons = document.querySelectorAll(".service-link");
@@ -126,15 +136,4 @@ document.addEventListener("DOMContentLoaded", function() {
         btnIcon.className = 'fas fa-paper-plane';
     }
     });
-
-    // Función callback para cuando se valida el reCAPTCHA
-    function enableSubmitButton() {
-        document.getElementById('submit-btn').disabled = false;
-    }
-
-    // Función para resetear el reCAPTCHA después de enviar
-    function resetRecaptcha() {
-        grecaptcha.reset();
-        document.getElementById('submit-btn').disabled = true;
-    }
 });
