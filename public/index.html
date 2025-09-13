@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Paradox Systems</title>
 
+    <!-- ReCaptcha V2 -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
     <!-- Fuentes y estilos -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@600&display=swap" rel="stylesheet" />
@@ -256,10 +259,13 @@
             <textarea id="mensaje" name="mensaje" placeholder="Cuéntanos sobre tu proyecto..." required></textarea>
             </div>
 
-            <button type="submit" class="submit-btn" id="submit-btn">
-            <span id="btn-text">Enviar Mensaje</span>
-            <i class="fas fa-paper-plane" id="btn-icon"></i>
-            </button>
+            <div class="form-submit-row">
+              <div class="g-recaptcha" data-sitekey="6LfNrMgrAAAAAEdbf5Pa30W51ZA5XJ_msMOakBYC" data-callback="enableSubmitButton"></div>
+              <button type="submit" class="submit-btn" id="submit-btn" disabled>
+                <span id="btn-text">Enviar Mensaje</span>
+                <i class="fas fa-paper-plane" id="btn-icon"></i>
+              </button>
+            </div>
         </form>
         </div>
     </div>

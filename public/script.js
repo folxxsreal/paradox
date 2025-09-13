@@ -126,4 +126,15 @@ document.addEventListener("DOMContentLoaded", function() {
         btnIcon.className = 'fas fa-paper-plane';
     }
     });
+
+    // Función callback para cuando se valida el reCAPTCHA
+    function enableSubmitButton() {
+        document.getElementById('submit-btn').disabled = false;
+    }
+
+    // Función para resetear el reCAPTCHA después de enviar
+    function resetRecaptcha() {
+        grecaptcha.reset();
+        document.getElementById('submit-btn').disabled = true;
+    }
 });

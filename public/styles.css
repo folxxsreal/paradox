@@ -798,10 +798,30 @@ background-color: #005fa3;
 transform: translateY(-2px);
 }
 
+.form-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
 .submit-btn:disabled {
-background-color: #ccc;
-cursor: not-allowed;
-transform: none;
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #888;
+}
+
+.submit-btn:disabled:hover {
+  transform: none;
+  background: #888;
+}
+
+@media (max-width: 768px) {
+  .form-submit-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 .loading-spinner {
