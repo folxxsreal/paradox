@@ -29,6 +29,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Todos los campos son requeridos' });
   }
 
+  // AÑADE ESTO: Validar reCAPTCHA
+  if (!recaptchaToken) {
+    return res.status(400).json({ message: 'Por favor completa el reCAPTCHA' });
+  }
+
   try {
   // Verificar reCAPTCHA
   const recaptchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
