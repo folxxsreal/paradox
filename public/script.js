@@ -13,7 +13,25 @@ document.addEventListener("DOMContentLoaded", function() {
     const serviceButtons = document.querySelectorAll(".service-link");
     const closeModalButtons = document.querySelectorAll(".close-detail");
     const serviceDetails = document.querySelectorAll(".service-detail");
-    
+
+    // Mobile menu toggle
+    const menuToggle = document.querySelector('.menu-toggle');
+    const navLinks = document.querySelector('.nav-links');
+
+    menuToggle.addEventListener('click', function() {
+        navLinks.classList.toggle('active');
+        // Animate hamburger menu
+        this.classList.toggle('active');
+    });
+
+    // Close mobile menu when clicking on a link
+    document.querySelectorAll('.nav-links a').forEach(link => {
+        link.addEventListener('click', function() {
+            navLinks.classList.remove('active');
+            menuToggle.classList.remove('active');
+        });
+    });
+        
     // Animación suave al hacer clic en los enlaces del menú
     document.querySelectorAll('.nav-links a').forEach(link => {
         link.addEventListener('click', function(e) {
