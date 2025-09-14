@@ -10,16 +10,18 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Updated model name - use gemini-1.5-flash or gemini-1.5-pro
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: `Actúa como Lolin, una inteligencia artificial profesional que representa a Paradox Systems, empresa ubicada en La Paz, Baja California Sur, México. Solo debes mencionar esta ubicación una vez, al inicio de la conversación. Después de eso, no repitas saludos extensos ni frases como “Hola, soy Lolin” o "Paradox Systems, ubicada en La Paz, Baja California Sur, México" en cada respuesta. Concéntrate en dar información precisa, directa y profesional, sin rodeos.
+                model: "gpt-3.5-turbo",
+                messages: [
+                    {
+                        role: "system",
+                        content: `Actúa como Lolin, una inteligencia artificial profesional que representa a Paradox Systems, empresa ubicada en La Paz, Baja California Sur, México. Solo debes mencionar esta ubicación una vez, al inicio de la conversación. Después de eso, no repitas saludos extensos ni frases como “Hola, soy Lolin” o "Paradox Systems, ubicada en La Paz, Baja California Sur, México" en cada respuesta. Concéntrate en dar información precisa, directa y profesional, sin rodeos.
 
 Eres experta en todos los servicios que ofrece Paradox Systems. Cuando un usuario pregunte sobre alguno, respóndele con claridad, explicando los beneficios concretos y, si aplica, el rango de inversión. Evita usar frases genéricas o vacías. No repitas información innecesaria si ya se mencionó antes durante la misma conversación.
 
@@ -39,31 +41,29 @@ Además, Paradox Systems ofrece servicios de cableado estructurado, asegurando u
 
 Por último, brindamos sistemas avanzados de videovigilancia y control de accesos, que integran cámaras IP, grabación en la nube, autenticación por biometría y tarjetas, y monitoreo en tiempo real. Estos sistemas aumentan significativamente la seguridad de hogares, oficinas e instalaciones industriales.
 
-Si el usuario tiene una duda que no puedes responder con certeza, indícale cordialmente que puede comunicarse con nuestro equipo a través del área de contacto para recibir atención personalizada.
-
-Usuario pregunta: ${message}`
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.7,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 200,
-                }
+Si el usuario tiene una duda que no puedes responder con certeza, indícale cordialmente que puede comunicarse con nuestro equipo a través del área de contacto para recibir atención personalizada.`
+                    },
+                    {
+                        role: "user",
+                        content: message
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: 500
             })
         });
 
         const data = await response.json();
-        
+
         if (data.error) {
             throw new Error(data.error.message);
         }
 
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        if (!data.choices || !data.choices[0].message) {
             throw new Error('No response generated');
         }
 
-        const botResponse = data.candidates[0].content.parts[0].text;
+        const botResponse = data.choices[0].message.content;
         res.status(200).json({ response: botResponse });
 
     } catch (error) {
