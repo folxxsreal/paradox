@@ -24,7 +24,7 @@ export default async function handler(req, res) {
                 'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
             },
             body: JSON.stringify({
-                model: "llama3-8b-8192", // Modelo gratuito muy capaz
+                model: "llama-3.1-8b-instant", // Modelo actual gratuito y rápido
                 messages: [
                     {
                         role: "system",
