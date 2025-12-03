@@ -1,4 +1,110 @@
-// api/chat.js - Versión con Groq (GRATIS)
+// /api/chat.js - Versión con Groq + APP-Governor Lite
+
+// ============================
+// 1. APP-GOVERNOR LITE
+// ============================
+
+/**
+ * Evalúa el mensaje del usuario según reglas de viabilidad
+ * para el chat de Paradox Systems.
+ *
+ * Devuelve un objeto:
+ *  - state: "OK" | "OUT_OF_DOMAIN" | "SAFETY_BLOCK"
+ *  - reason: texto breve interno (para logs)
+ */
+function evaluateAppGovernor(message) {
+    const text = (message || "").toLowerCase();
+
+    // -------- Canal 1: Seguridad / Contenido delicado --------
+    const safetyKeywords = [
+        "bomba casera", "explosivo", "tnt", "molotov",
+        "arma casera", "pistola casera", "detonador",
+        "hackear", "hackeo", "piratear", "crackear",
+        "fraude", "estafa", "clonar tarjeta", "phishing",
+        "suicidio", "quitarme la vida", "hacer daño a otros",
+        "fabricar droga", "cocinar droga", "metanfetamina"
+    ];
+
+    const hitSafety = safetyKeywords.some(k => text.includes(k));
+    if (hitSafety) {
+        return {
+            state: "SAFETY_BLOCK",
+            reason: "Detected high-risk / harmful content"
+        };
+    }
+
+    // -------- Canal 2: Dominio Paradox Systems --------
+    // Palabras y frases que indican que la pregunta está
+    // dentro del dominio útil de la empresa.
+    const domainKeywords = [
+        // Marca y empresa
+        "paradox systems", "lolin",
+
+        // Energía solar y fotovoltaica
+        "energía solar", "energia solar", "paneles solares",
+        "panel solar", "fotovoltaico", "fotovoltaica",
+        "inversor", "inversores", "inversor híbrido",
+        "baterías", "baterias", "banco de baterías",
+        "sistema aislado", "sistema interconectado",
+        "victron", "pylontech",
+
+        // Automatización residencial
+        "casa inteligente", "domótica", "domotica",
+        "automatización residencial", "automatizacion residencial",
+        "luces inteligentes", "persianas inteligentes",
+        "cerraduras inteligentes", "sensores de movimiento",
+        "asistente de voz", "alexa", "google home",
+
+        // Automatización industrial
+        "automatización industrial", "automatizacion industrial",
+        "plc", "pac", "scada", "hmi", "control industrial",
+        "proceso industrial", "línea de producción", "linea de produccion",
+
+        // Ingeniería marítima
+        "ingeniería marítima", "ingenieria maritima",
+        "embarcación", "embarcaciones", "muelle", "puerto",
+        "carga y descarga", "brazos de carga", "loading arm",
+
+        // Cableado, redes, seguridad
+        "cableado estructurado", "red de datos", "rack de comunicaciones",
+        "videovigilancia", "cámaras de seguridad", "camaras de seguridad",
+        "control de accesos", "lector biométrico", "lector biometrico",
+
+        // Software y soluciones a medida
+        "software a medida", "desarrollo de software",
+        "aplicación a medida", "app a medida",
+
+        // Incendios
+        "sistema contra incendios", "detección de humo",
+        "deteccion de humo", "rociadores", "supresión de incendios",
+        "supresion de incendios",
+
+        // Consultoría / cotización
+        "cotización", "cotizacion", "presupuesto", "proyecto",
+        "instalación", "instalacion", "servicio", "asesoría",
+        "asesoria", "consultoría", "consultoria"
+    ];
+
+    const inDomain = domainKeywords.some(k => text.includes(k));
+
+    if (!inDomain) {
+        return {
+            state: "OUT_OF_DOMAIN",
+            reason: "Message is off-domain for Paradox Systems assistant"
+        };
+    }
+
+    // Si pasa ambos canales, es viable
+    return {
+        state: "OK",
+        reason: "Message is in-domain and safe"
+    };
+}
+
+// ============================
+// 2. HANDLER PRINCIPAL
+// ============================
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -9,6 +115,38 @@ export default async function handler(req, res) {
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
     }
+
+    // -------- APP-GOVERNOR: evaluación previa --------
+    const appDecision = evaluateAppGovernor(message);
+
+    // Log básico en servidor (Vercel)
+    console.log("[APP-GOVERNOR]", {
+        state: appDecision.state,
+        reason: appDecision.reason,
+        inputSample: message.slice(0, 80)
+    });
+
+    // 1) Bloqueo por seguridad
+    if (appDecision.state === "SAFETY_BLOCK") {
+        return res.status(200).json({
+            response:
+                "Este asistente no puede ayudar con instrucciones peligrosas o dañinas. " +
+                "Si tienes alguna duda sobre soluciones de ingeniería, automatización o energía, " +
+                "con gusto puedo orientarte en esos temas."
+        });
+    }
+
+    // 2) Fuera de dominio Paradox
+    if (appDecision.state === "OUT_OF_DOMAIN") {
+        return res.status(200).json({
+            response:
+                "Este asistente está enfocado en los servicios de Paradox Systems " +
+                "(energía solar, automatización residencial e industrial, ingeniería y soluciones tecnológicas). " +
+                "Si tu consulta es sobre esos temas, dime en qué proyecto o problema estás pensando."
+        });
+    }
+
+    // A partir de aquí, el mensaje se considera viable y en dominio.
 
     // Verificar que la API key esté configurada
     if (!process.env.GROQ_API_KEY) {
