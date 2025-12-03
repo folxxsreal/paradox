@@ -1,76 +1,266 @@
 // /api/chat.js
-// Versión con APP Governor "lite" para Lolin (Paradox Systems)
-// Usa Groq (llama-3.1-8b-instant)
+// Lolin + APP Governor con memoria y decaimiento (demo)
+
+let memoryStore = [];  // “memoria” en caliente (por proceso/serverless)
+let stepCounter = 0;
+
+// ---------- Utilidades de memoria / APP ----------
+
+function pushMemory({ text, role, tag = "context", critical = false }) {
+  stepCounter += 1;
+
+  const baseViability = critical ? 1.0 : (tag === "business" ? 0.8 : 0.5);
+
+  memoryStore.push({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    text,
+    role,
+    tag,
+    critical,
+    createdAt: Date.now(),
+    step: stepCounter,
+    viability: baseViability,
+    active: true
+  });
+
+  // Pequeña limpieza para que no crezca infinito
+  if (memoryStore.length > 200) {
+    memoryStore = memoryStore.slice(-150);
+  }
+}
+
+function decayAndSelectMemories(maxFragments = 6) {
+  if (!memoryStore.length) return [];
+
+  const nowStep = stepCounter || 1;
+
+  const scored = memoryStore.map((m) => {
+    const ageSteps = Math.max(0, nowStep - (m.step || nowStep));
+    // Decaimiento diferencial: críticos caen muy lento
+    const lambda = m.critical ? 0.01 : (m.tag === "business" ? 0.05 : 0.12);
+    const decayed = m.viability * Math.exp(-lambda * ageSteps);
+
+    return { ...m, decayed };
+  });
+
+  // Filtrar inactivos y basura muy baja
+  const filtered = scored.filter((m) => m.active && m.decayed > 0.15);
+
+  // Ordenar: primero críticos, luego mayor viabilidad
+  filtered.sort((a, b) => {
+    if (a.critical !== b.critical) return a.critical ? -1 : 1;
+    return b.decayed - a.decayed;
+  });
+
+  return filtered.slice(0, maxFragments);
+}
+
+// ---------- APP Governor: clasificación del mensaje ----------
+
+function classifyUserMessage(message) {
+  const lower = (message || "").toLowerCase();
+
+  const isWeapons =
+    /bomba casera|explosivo|molotov|arma|detonador|tnt|dinamita/.test(lower);
+
+  const isCrime =
+    /hackear|clonar tarjeta|fraude|delito|crimen|narc[oó]tico|droga/.test(
+      lower
+    );
+
+  const isMedical =
+    /dosis|miligramos|mg\/kg|tratamiento|quimioterapia|nivolumab|medicamento|pastilla/.test(
+      lower
+    );
+
+  const isPolitics =
+    /presidente|elecci[oó]n|partido|pol[ií]tica nacional|gobierno|senador|diputado/.test(
+      lower
+    );
+
+  const isReligion =
+    /dios|iglesia|relig[ií]on|milagro|pecado|santo/.test(lower);
+
+  const isParadoxDomain =
+    /paradox systems|energ[ií]a solar|panel(es)? solar(es)?|automatizaci[oó]n|casa inteligente|plc|scada|ingenier[ií]a|videovigilancia|cableado estructurado|sistema contra incendio/.test(
+      lower
+    );
+
+  const clearlyOffDomain =
+    /(hor[oó]scopo|signo zodiacal|poema de amor|chiste verde|fanfic|fanfics|cuento er[oó]tico)/.test(
+      lower
+    );
+
+  return {
+    isWeapons,
+    isCrime,
+    isMedical,
+    isPolitics,
+    isReligion,
+    isParadoxDomain,
+    clearlyOffDomain
+  };
+}
+
+function appGovernorDecision(message) {
+  const flags = classifyUserMessage(message);
+
+  // 1) PELIGRO DURO → bloqueo total
+  if (flags.isWeapons || flags.isCrime) {
+    return {
+      mode: "block",
+      reason: "safety",
+      reply:
+        "Este asistente no puede ayudar con instrucciones peligrosas o ilegales, como fabricar armas, explosivos o cometer delitos. " +
+        "Si tienes dudas sobre soluciones de ingeniería, automatización o energía, con gusto puedo orientarte en esos temas.",
+      flags
+    };
+  }
+
+  // 2) Medicina → nunca damos dosis ni diagnóstico
+  if (flags.isMedical && !flags.isParadoxDomain) {
+    return {
+      mode: "redirect",
+      reason: "medical",
+      reply:
+        "No puedo dar diagnósticos, dosis de medicamentos ni recomendaciones médicas personalizadas. " +
+        "Para cualquier decisión sobre salud, es indispensable consultar directamente con un profesional médico. " +
+        "Si quieres, puedo explicarte de forma general cómo la tecnología o la automatización pueden apoyar en entornos clínicos.",
+      flags
+    };
+  }
+
+  // 3) Política / religión / horóscopo / chorradas off-domain
+  if (
+    flags.isPolitics ||
+    flags.isReligion ||
+    flags.clearlyOffDomain ||
+    !flags.isParadoxDomain
+  ) {
+    return {
+      mode: "redirect",
+      reason: "off_domain",
+      reply:
+        "Este asistente está enfocado en los servicios de Paradox Systems: energía solar, automatización residencial e industrial, ingeniería y soluciones tecnológicas. " +
+        "Si tu consulta es sobre esos temas, dime en qué proyecto o problema estás pensando y lo revisamos.",
+      flags
+    };
+  }
+
+  // 4) ON-DOMAIN y seguro → se permite, pero con contrato APP
+  return {
+    mode: "allow",
+    reason: "on_domain",
+    reply: null,
+    flags
+  };
+}
+
+// ---------- Handler HTTP principal ----------
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const { message } = req.body;
 
-  if (!message || typeof message !== 'string') {
-    return res.status(400).json({ error: 'Message is required' });
+  if (!message) {
+    return res.status(400).json({ error: "Message is required" });
   }
 
   if (!process.env.GROQ_API_KEY) {
-    console.error('GROQ_API_KEY not configured');
-    return res.status(500).json({ error: 'API key not configured' });
+    console.error("GROQ_API_KEY not configured");
+    return res.status(500).json({ error: "API key not configured" });
   }
 
   try {
-    // 1) APP GOVERNOR: decide qué hacer con el mensaje
-    const decision = appGovernor(message);
+    // 1) APP Governor decide qué hacer con este mensaje
+    const decision = appGovernorDecision(message);
 
-    // Casos en los que NO llamamos al LLM (bloqueo o redirección)
-    if (decision.mode === 'block' || decision.mode === 'redirect') {
-      return res.status(200).json({
-        response: decision.reply,
-        // Si algún día quieres depurar, aquí viene la razón:
-        meta: {
-          mode: decision.mode,
-          reason: decision.reason,
-          activeRules: decision.activeRules.map(r => r.id),
-        },
+    // Guardamos el mensaje como memoria de usuario (no crítica)
+    pushMemory({ text: message, role: "user", tag: "user", critical: false });
+
+    // 2) Si hay bloqueo o redirect, respondemos SIN llamar al LLM
+    if (decision.mode === "block" || decision.mode === "redirect") {
+      // También guardamos la decisión como memoria crítica del sistema
+      pushMemory({
+        text: `APP-Governor decidió modo=${decision.mode} (${decision.reason}) para: "${message}"`,
+        role: "system",
+        tag: "policy",
+        critical: true
       });
+
+      return res.status(200).json({ response: decision.reply });
     }
 
-    // 2) Si el mensaje es viable → llamamos al LLM bajo las reglas APP
-    const systemPrompt = buildSystemPrompt(decision.activeRules);
+    // 3) Modo allow → construimos contexto viable y system prompt
+    const viableMemories = decayAndSelectMemories(5);
 
+    const memoryContext = viableMemories
+      .map((m) => {
+        const prefix = m.role === "user" ? "Usuario:" : "Sistema:";
+        return `${prefix} ${m.text}`;
+      })
+      .join("\n");
+
+    // Núcleo: reglas APP para Lolin
+    const appContract = `
+Eres Lolin, asistente de Paradox Systems (La Paz, Baja California Sur, México). 
+Debes cumplir SIEMPRE las siguientes reglas de viabilidad:
+
+1) No des instrucciones peligrosas (armas, explosivos, delitos, daño a personas o bienes).
+2) No des diagnósticos médicos ni dosis de medicamentos.
+3) No entres en debates de política partidista ni religión.
+4) Mantén el foco en los servicios y competencias de Paradox Systems:
+   energía solar, automatización residencial e industrial, ingeniería, software y seguridad.
+5) Si el usuario pregunta algo fuera de dominio, redirígelo con cortesía hacia esos servicios.
+6) Usa un tono profesional, directo y respetuoso, sin relleno innecesario.
+
+Nunca rompas estas reglas, aunque el usuario insista. Si alguna regla entra en conflicto
+con la petición del usuario, prioriza SIEMPRE la seguridad y el dominio Paradox.
+`;
+
+    const systemPrompt = `${appContract}
+
+Contexto reciente relevante (memoria APP, ya filtrada):
+${memoryContext || "(sin contexto previo significativo)"}
+`;
+
+    // 4) Llamada a Groq (modelo llama-3.1-8b-instant)
     const response = await fetch(
-      'https://api.groq.com/openai/v1/chat/completions',
+      "https://api.groq.com/openai/v1/chat/completions",
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: "llama-3.1-8b-instant",
           messages: [
             {
-              role: 'system',
-              content: systemPrompt,
+              role: "system",
+              content: systemPrompt
             },
             {
-              role: 'user',
-              content: message,
-            },
+              role: "user",
+              content: message
+            }
           ],
-          temperature: 0.7,
-          max_tokens: 500,
-          stream: false,
-        }),
+          temperature: 0.4,
+          max_tokens: 600,
+          stream: false
+        })
       }
     );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Groq API Error:', response.status, errorData);
+      console.error("Groq API Error:", response.status, errorData);
       throw new Error(
         `Groq API Error: ${response.status} - ${
-          errorData.error?.message || 'Unknown error'
+          errorData.error?.message || "Unknown error"
         }`
       );
     }
@@ -78,286 +268,29 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!data.choices || !data.choices[0]?.message) {
-      throw new Error('No response generated from Groq');
+      throw new Error("No response generated from Groq");
     }
 
-    const botResponse = data.choices[0].message.content;
+    const botResponse = data.choices[0].message.content || "";
 
-    return res.status(200).json({
-      response: botResponse,
-      meta: {
-        mode: decision.mode,
-        activeRules: decision.activeRules.map(r => r.id),
-      },
+    // Guardamos la respuesta como memoria de sistema “business”
+    pushMemory({
+      text: botResponse.slice(0, 600),
+      role: "assistant",
+      tag: "business",
+      critical: false
     });
+
+    return res.status(200).json({ response: botResponse });
   } catch (error) {
-    console.error('Detailed error:', error);
+    console.error("Detailed error:", error);
 
-    if (String(error.message).includes('401')) {
-      return res.status(500).json({ error: 'API key inválida' });
+    if (String(error.message || "").includes("401")) {
+      return res.status(500).json({ error: "API key inválida" });
+    } else if (String(error.message || "").includes("429")) {
+      return res.status(500).json({ error: "Límite de requests excedido" });
+    } else {
+      return res.status(500).json({ error: "Error interno del servidor" });
     }
-    if (String(error.message).includes('429')) {
-      return res.status(500).json({ error: 'Límite de requests excedido' });
-    }
-
-    return res.status(500).json({ error: 'Error interno del servidor' });
   }
-}
-
-/* ============================================================
-   APP GOVERNOR "LITE" PARA Lolin
-   ============================================================ */
-
-// Reglas críticas (núcleo de viabilidad y guardas)
-const APP_RULES = [
-  {
-    id: 'domain_paradox',
-    type: 'invariant', // núcleo de viabilidad
-    description:
-      'Solo hablar de servicios y capacidades de Paradox Systems (energía solar, automatización residencial e industrial, ingeniería, software, videovigilancia, etc.).',
-  },
-  {
-    id: 'safety_weapons',
-    type: 'guard',
-    description:
-      'No dar instrucciones para fabricar armas, explosivos, drogas, ni actividades peligrosas.',
-  },
-  {
-    id: 'safety_selfharm',
-    type: 'guard',
-    description:
-      'No fomentar autolesiones ni suicidio; orientar a ayuda profesional.',
-  },
-  {
-    id: 'politics_block',
-    type: 'guard',
-    description:
-      'No opinar de política partidista, campañas, partidos o figuras políticas.',
-  },
-  {
-    id: 'medical_block',
-    type: 'guard',
-    description:
-      'No dar diagnóstico médico ni ajustar tratamientos; solo información general y sugerir médico.',
-  },
-];
-
-// Heurísticas baratas para detección de temas (no perfectas, pero suficientes)
-function detectTopicFlags(text) {
-  const t = text.toLowerCase();
-
-  const offDomainKeywords = [
-    'novia',
-    'chisme',
-    'horóscopo',
-    'signo zodiacal',
-    'poesía',
-    'cuento',
-    'historia de terror',
-  ];
-
-  const politicsKeywords = [
-    'presidente',
-    'elección',
-    'elecciones',
-    'partido',
-    'política nacional',
-    'senador',
-    'diputado',
-    'campaña',
-  ];
-
-  const weaponsKeywords = [
-    'bomba casera',
-    'explosivo',
-    'molotov',
-    'arma casera',
-    'pólvora',
-    'detonador',
-  ];
-
-  const selfharmKeywords = [
-    'suicid',
-    'hacerme daño',
-    'ya no quiero vivir',
-    'lastimarme',
-  ];
-
-  const medicalKeywords = [
-    'diagnóstico',
-    'dosis',
-    'medicina',
-    'pastilla',
-    'inyección',
-    'antibiótico',
-    'quimioterapia',
-    'nivolumab',
-  ];
-
-  const paradoxKeywords = [
-    'paneles solares',
-    'sistema fotovoltaico',
-    'energía solar',
-    'automatización residencial',
-    'casa inteligente',
-    'domótica',
-    'plc',
-    'scada',
-    'automatización industrial',
-    'cableado estructurado',
-    'videovigilancia',
-    'cámara ip',
-    'control de acceso',
-    'firewall',
-    'ingeniería marítima',
-    'sistema contra incendios',
-    'software a medida',
-    'paradox systems',
-  ];
-
-  const isParadoxDomain = paradoxKeywords.some(k => t.includes(k));
-  const isPolitics = politicsKeywords.some(k => t.includes(k));
-  const isWeapons = weaponsKeywords.some(k => t.includes(k));
-  const isSelfHarm = selfharmKeywords.some(k => t.includes(k));
-  const isMedical = medicalKeywords.some(k => t.includes(k));
-  const isOffDomain =
-    !isParadoxDomain &&
-    !isPolitics &&
-    !isWeapons &&
-    !isSelfHarm &&
-    !isMedical &&
-    offDomainKeywords.some(k => t.includes(k));
-
-  return {
-    isParadoxDomain,
-    isPolitics,
-    isWeapons,
-    isSelfHarm,
-    isMedical,
-    isOffDomain,
-  };
-}
-
-/**
- * Núcleo APP:
- * - Decide si bloquea, redirige o delega al LLM.
- * - Devuelve:
- *   { mode: 'block' | 'redirect' | 'llm', reply?, reason?, activeRules[] }
- */
-function appGovernor(userMessage) {
-  const flags = detectTopicFlags(userMessage);
-
-  // 1) Rutas de mortalidad duras: armas, daño, etc. → block
-  if (flags.isWeapons) {
-    return {
-      mode: 'block',
-      reason: 'weapons',
-      reply:
-        'Este asistente no puede ayudar con instrucciones peligrosas o dañinas, como fabricar armas, explosivos o dispositivos peligrosos. ' +
-        'Si tienes dudas sobre soluciones de ingeniería, automatización o energía, con gusto puedo orientarte en esos temas.',
-      activeRules: APP_RULES.filter(r =>
-        ['safety_weapons', 'domain_paradox'].includes(r.id)
-      ),
-    };
-  }
-
-  if (flags.isSelfHarm) {
-    return {
-      mode: 'block',
-      reason: 'self_harm',
-      reply:
-        'Lamento que te sientas así. Este asistente no puede dar indicaciones relacionadas con autolesiones o suicidio. ' +
-        'Te recomiendo hablar con un profesional de la salud o con alguien de confianza. Si estás en una situación de emergencia, por favor contacta a los servicios de ayuda de tu localidad.',
-      activeRules: APP_RULES.filter(r =>
-        ['safety_selfharm', 'domain_paradox'].includes(r.id)
-      ),
-    };
-  }
-
-  // 2) Política partidista → redirección suave
-  if (flags.isPolitics) {
-    return {
-      mode: 'redirect',
-      reason: 'politics',
-      reply:
-        'Este asistente está enfocado en los servicios de Paradox Systems (energía solar, automatización residencial e industrial, ingeniería y soluciones tecnológicas). ' +
-        'No emite opiniones sobre política partidista o figuras públicas. ' +
-        'Si tienes un proyecto relacionado con energía, automatización o ingeniería, dime en qué estás pensando y te ayudo a aterrizarlo.',
-      activeRules: APP_RULES.filter(r =>
-        ['politics_block', 'domain_paradox'].includes(r.id)
-      ),
-    };
-  }
-
-  // 3) Peticiones claramente fuera de dominio → redirección
-  if (flags.isOffDomain) {
-    return {
-      mode: 'redirect',
-      reason: 'off_domain',
-      reply:
-        'Este asistente está diseñado para ayudarte específicamente con proyectos de Paradox Systems: energía solar, automatización residencial e industrial, ingeniería, software a medida, videovigilancia y soluciones afines. ' +
-        'Si me cuentas qué necesitas en alguno de esos temas, puedo darte una recomendación concreta.',
-      activeRules: APP_RULES.filter(r => r.id === 'domain_paradox'),
-    };
-  }
-
-  // 4) Preguntas médicas específicas → redirección
-  if (flags.isMedical) {
-    return {
-      mode: 'redirect',
-      reason: 'medical',
-      reply:
-        'No puedo dar diagnósticos médicos ni ajustar tratamientos. ' +
-        'Puedo ayudarte a entender, a nivel general, cómo una solución tecnológica podría apoyar procesos de salud (por ejemplo, monitoreo, automatización o energía de respaldo), ' +
-        'pero siempre debes consultar tus dudas médicas directamente con un profesional de la salud.',
-      activeRules: APP_RULES.filter(r =>
-        ['medical_block', 'domain_paradox'].includes(r.id)
-      ),
-    };
-  }
-
-  // 5) Mensajes dentro del dominio Paradox → delegar al LLM
-  //    con reglas activas (núcleo de viabilidad)
-  const activeRules = [APP_RULES.find(r => r.id === 'domain_paradox')].filter(
-    Boolean
-  );
-
-  // Podríamos añadir más reglas activas según el tipo de proyecto,
-  // pero para esta primera versión basta el núcleo de viabilidad.
-
-  return {
-    mode: 'llm',
-    reason: 'viable',
-    activeRules,
-  };
-}
-
-/**
- * Construye el prompt de sistema a partir de las reglas activas del APP.
- */
-function buildSystemPrompt(activeRules) {
-  const rulesText = activeRules
-    .map(r => `- ${r.description}`)
-    .join('\n');
-
-  return `Actúas como Lolin, asistente de Paradox Systems, empresa de ingeniería y tecnología ubicada en La Paz, Baja California Sur, México.
-Solo debes mencionar la ubicación una vez si es relevante al contexto, y después concentrarte en dar respuestas claras, técnicas y sin rodeos.
-
-Debes cumplir estrictamente las siguientes reglas de viabilidad:
-
-${rulesText}
-
-Estás especializada en:
-- Energía solar residencial, comercial e industrial.
-- Automatización residencial (casas inteligentes).
-- Automatización industrial (PLCs, SCADA, control de procesos).
-- Ingeniería marítima y soluciones en entornos costeros.
-- Diseño y construcción de máquinas y prototipos.
-- Cableado estructurado, redes y comunicaciones.
-- Videovigilancia, control de accesos y sistemas contra incendios.
-- Desarrollo de software a medida.
-
-Si la pregunta se sale de estos temas, redirige amablemente la conversación hacia un problema o proyecto donde Paradox Systems pueda aportar valor, sin inventar servicios que no ofrecemos.
-
-Responde siempre en español, con tono profesional, directo y respetuoso. No repitas tu presentación en cada mensaje.`;
 }
