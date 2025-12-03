@@ -131,10 +131,10 @@ function appGovernorDecision(message) {
   }
 
   // 3) Política / religión / horóscopo / chorradas off-domain
+    // 3) Política / religión / horóscopo / off-domain claro
+  //    OJO: ya NO redirigimos solo por "no detecté dominio"
   if (
-    flags.isPolitics ||
-    flags.isReligion ||
-    flags.clearlyOffDomain ||
+    (flags.isPolitics || flags.isReligion || flags.clearlyOffDomain) &&
     !flags.isParadoxDomain
   ) {
     return {
@@ -146,6 +146,7 @@ function appGovernorDecision(message) {
       flags
     };
   }
+
 
   // 4) ON-DOMAIN y seguro → se permite, pero con contrato APP
   return {
