@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isOpen = !isOpen;
         chatWindow.classList.toggle('chatbot-hidden', !isOpen);
         if (isOpen && chatMessages.children.length === 0) {
-            addMessage('bot', '¡Hola! Soy Lolin, tu asistente virtual de Paradox Systems. ¿En qué puedo ayudarte hoy?');
+            addMessage('bot', '¡Hola! Soy Godelin, tu asistente virtual de Paradox Systems. ¿En qué puedo ayudarte hoy?');
         }
     });
 
