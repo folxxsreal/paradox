@@ -1,4 +1,4 @@
-// /api/chat.js — Versión con GROQ + APP Governor
+// /api/chat.js — Versión con GROQ + APP Governor (afinada)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -47,6 +47,17 @@ export default async function handler(req, res) {
         lower
       );
 
+    const isCooking =
+      /receta|ceviche|mole|tamal(es)?|pastel|guiso|cocina(r)?|ingredientes|hornear|marinar/.test(
+        lower
+      );
+
+    // Genérico: pedir código, tutoriales, “programar en…”
+    const isGenericTechTutorial =
+      /(c[oó]digo|script|ejemplo en|snippet|plantilla html|html b[aá]sico|estructura html|programar en|c[oó]mo programar|tutorial de|paso a paso en (html|javascript|python|java|c\+\+|arduino|react|node\.js|kotlin|android|app m[oó]vil))/i.test(
+        lower
+      );
+
     const isParadoxDomain =
       /paradox systems|paradoxsystems|energ[ií]a solar|panel(es)? solar(es)?|fotovoltaic|fotovoltaico|automatizaci[oó]n|casa inteligente|hogar inteligente|plc|scada|ingenier[ií]a|videovigilancia|cableado estructurado|sistema contra incendio|software|aplicaci[oó]n|app(s)?|desarrollo de software|sistema a medida|proyecto de automatizaci[oó]n|soluciones tecnol[oó]gicas/.test(
         lower
@@ -73,6 +84,8 @@ export default async function handler(req, res) {
       isMedical,
       isPolitics,
       isReligion,
+      isCooking,
+      isGenericTechTutorial,
       isParadoxDomain,
       clearlyOffDomain,
       isDistress,
@@ -119,7 +132,34 @@ export default async function handler(req, res) {
           "Lamento mucho lo que estás pasando. Desde Paradox Systems solo puedo acompañarte con un mensaje de apoyo: " +
           "es válido sentirte así, y no tienes por qué cargarlo solo.\n\n" +
           "Hablar con alguien de confianza (familia, amigo cercano o un profesional de salud mental) suele ayudar mucho más que un mensaje en pantalla. " +
-          "Si además quieres platicar de proyectos, ideas o cómo distraerte haciendo algo técnico (energía, automatización, software), aquí sí puedo ayudarte sin problema.",
+          "Si además quieres distraerte platicando de proyectos técnicos (energía, automatización, software, robótica), aquí sí puedo ayudarte sin problema.",
+        flags,
+      };
+    }
+
+    // 🍳 Cocina / recetas — NO es nuestro negocio
+    if (flags.isCooking) {
+      return {
+        mode: "redirect",
+        reason: "cooking",
+        reply:
+          "Paradox Systems no se dedica a cocina ni a recetas. " +
+          "Soy un asistente técnico enfocado en energía solar, automatización, ingeniería, software y seguridad.\n\n" +
+          "Si quieres, dime qué proyecto técnico tienes en mente (por ejemplo: paneles solares, automatización de una casa o desarrollo de software) y lo revisamos.",
+        flags,
+      };
+    }
+
+    // 💻 Tutoriales de programación / código genérico fuera de contexto Paradox
+    if (flags.isGenericTechTutorial && !flags.isParadoxDomain) {
+      return {
+        mode: "redirect",
+        reason: "generic_tech",
+        reply:
+          "Este asistente no está pensado como tutor de programación ni generador de código genérico. " +
+          "Mi función es ayudarte a entender qué podemos hacer desde Paradox Systems en proyectos reales de ingeniería, automatización, energía y software a medida.\n\n" +
+          "Si estás pensando en un proyecto concreto (por ejemplo, una página web para tu negocio, una app a medida o un sistema de monitoreo), " +
+          "puedo orientarte sobre la solución y, si quieres avanzar, puedes escribir al WhatsApp **+526122173332** para una evaluación y propuesta formal.",
         flags,
       };
     }
@@ -137,17 +177,22 @@ export default async function handler(req, res) {
       };
     }
 
-    // 🏛️ Política / religión / off-domain (si no está hablando de Paradox)
+    // 🏛️ Política / religión / off-domain evidente
     if (
-      (flags.isPolitics || flags.isReligion || flags.clearlyOffDomain) &&
+      (flags.isPolitics ||
+        flags.isReligion ||
+        flags.clearlyOffDomain ||
+        (!flags.isParadoxDomain && !flags.isDistress && !flags.isMedical)) &&
       !flags.isParadoxDomain
     ) {
+      // Nota: este último término corta TODO lo que no sea Paradox, salvo distress/medical que ya filtramos arriba.
       return {
         mode: "redirect",
         reason: "off_domain",
         reply:
-          "Este asistente está enfocado en los servicios de Paradox Systems: energía solar, automatización residencial e industrial, ingeniería, desarrollo de software y soluciones de seguridad.\n\n" +
-          "Si tu consulta es sobre esos temas, dime en qué proyecto o problema estás pensando y lo revisamos. " +
+          "Este asistente está enfocado en los servicios y capacidades de Paradox Systems: energía solar, automatización residencial e industrial, ingeniería, desarrollo de software a medida, robótica aplicada y soluciones de seguridad.\n\n" +
+          "No funciono como centro de información general. " +
+          "Si tu consulta está relacionada con alguno de estos temas, dime en qué proyecto o problema estás pensando y lo revisamos. " +
           "Si deseas hablar con alguien del equipo directamente, puedes escribir al WhatsApp **+526122173332**.",
         flags,
       };
@@ -218,15 +263,22 @@ Afirmaciones corporativas INVARIANTES (no deben contradecirse jamás):
 • Si un servicio no aparece en el catálogo estándar, **no debe asumirse que no se hace**; se debe responder:
   "Podemos evaluar tu proyecto de innovación tecnológica y desarrollar una solución a la medida. ¿Quieres que revisemos tu caso?"
 
+Reglas adicionales de comportamiento:
+
+- Este asistente **NO es un centro de información general**. 
+  Si la pregunta no está relacionada con los servicios y capacidades de Paradox Systems, debes redirigir amablemente indicando tu foco.
+- No des **recetas de cocina** ni instrucciones culinarias.
+- No proporciones **código fuente, scripts completos ni tutoriales paso a paso** de programación.
+  Si el usuario pide código o ejemplos técnicos detallados, explica a alto nivel qué implica el desarrollo y sugiere contactar por WhatsApp para un proyecto formal.
+
 Uso del WhatsApp (+526122173332):
 
 - Solo menciona el WhatsApp cuando:
-- El usuario pida una cotización,
-- Quiera hablar con alguien del equipo,
-- Pregunte cómo contratar un servicio.
+  - El usuario pida una cotización,
+  - Quiera hablar con alguien del equipo,
+  - Pregunte cómo contratar un servicio,
+  - O cuando necesites derivar un proyecto técnico a atención humana.
 - No ofrezcas WhatsApp como canal para temas médicos, legales o de emergencia.
-
-
 
 Reglas obligatorias (APP Governor):
 
