@@ -51,6 +51,13 @@ const CRITICAL_BASE = [
   },
   {
     is_critical: true,
+    critical_id: "no_fuera_scope",
+    channel: "scope",
+    text:
+      "Regla: nunca dar ecuaciones, o clases particulares o enseñanzas de temas que estén fuera del alcance de los servicios de paradox systems.",
+  },
+  {
+    is_critical: true,
     critical_id: "no_prices",
     channel: "pricing",
     text:
