@@ -1,361 +1,421 @@
-// /api/akuma/governor.js — AKUMA/APP Governor (stateless module)
-// Purpose:
-// - Deterministic gating (block/redirect/support/fixed_reply/llm)
-// - Secure context assembly (critical memory survives; noise decays)
-// - Zero LLM calls inside governor (keeps model calls clean: "context is governed; don't contradict")
-
 import { DEFAULT_CRITICAL_RULES } from "./rules.js";
 
 const DEFAULTS = {
-  max_tokens: 150,
+  max_tokens: 180,
   lambda_critical: 0.0005,
   lambda_noise: 0.08,
-  threshold: 0.75,
+  alpha: 0.15,
+  beta: 0.85,
+  threshold: 0.72,
+  injection_penalty: 0.85,
 };
 
-// Memoria crítica “inmutable” (gobernanza)
-// Fuente única: api/akuma/rules.js
-const CRITICAL_BASE = (DEFAULT_CRITICAL_RULES || []).map((r) => ({
-  ...r,
-  is_critical: true,
-}));
-
-// Simple in-memory store (per instance)
-function ensureStore(req) {
-  if (!req.__akuma_store) {
-    req.__akuma_store = {
-      items: [], // {text,is_critical,critical_id,channel,lambda,ts}
-    };
-  }
-  return req.__akuma_store;
-}
-
-function now() {
+function nowMs() {
   return Date.now();
 }
 
-function tokenizeApprox(text) {
-  // crude token estimate: ~4 chars/token
+function estimateTokens(text) {
+  // Heurística: ~4 chars por token (aprox). Suficiente para budget.
   return Math.ceil((text || "").length / 4);
 }
 
-function clamp01(x) {
-  return Math.max(0, Math.min(1, x));
+function normalize(v) {
+  const s = String(v ?? "");
+  return s.normalize("NFKC");
 }
 
-function scoreByHeuristics(query, item) {
-  // Deterministic lightweight scoring (no embeddings here).
-  // Goal: prefer critical, channel-match, and keyword overlap.
-  const q = (query || "").toLowerCase();
-  const t = (item.text || "").toLowerCase();
-
-  let s = 0.0;
-  if (item.is_critical) s += 1.0;
-
-  // Channel hint: if query mentions channel keywords, boost matches
-  const channel = (item.channel || "").toLowerCase();
-  if (channel && q.includes(channel)) s += 0.35;
-
-  // Keyword overlap (very simple)
-  const qWords = new Set(q.split(/[^a-z0-9áéíóúñü]+/i).filter(Boolean));
-  const tWords = new Set(t.split(/[^a-z0-9áéíóúñü]+/i).filter(Boolean));
-  let overlap = 0;
-  for (const w of qWords) {
-    if (tWords.has(w)) overlap++;
+function cosineSim(a, b) {
+  let dot = 0,
+    na = 0,
+    nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
   }
-  s += Math.min(0.8, overlap * 0.08);
-
-  // Prefer newer items slightly
-  const ageMin = (now() - (item.ts || now())) / 60000;
-  s += Math.max(0, 0.25 - ageMin * 0.01);
-
-  return s;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-9);
 }
 
-function decayWeight(item) {
-  // For selection priority only (not deleting): exp(-lambda * age)
-  const ageSec = (now() - (item.ts || now())) / 1000;
-  const lam = item.lambda ?? DEFAULTS.lambda_noise;
-  return Math.exp(-lam * ageSec);
-}
-
-export function storeMemory(req, text, opts = {}) {
-  const store = ensureStore(req);
-  const {
-    is_critical = false,
-    critical_id = null,
-    channel = "general",
-    lambda = is_critical ? DEFAULTS.lambda_critical : DEFAULTS.lambda_noise,
-  } = opts;
-
-  // Supersede: if critical_id exists, overwrite prior entry with same id
-  if (is_critical && critical_id) {
-    const idx = store.items.findIndex((x) => x.critical_id === critical_id);
-    if (idx >= 0) {
-      store.items[idx] = {
-        ...store.items[idx],
-        text,
-        is_critical: true,
-        critical_id,
-        channel,
-        lambda,
-        ts: now(),
-      };
-      return;
-    }
+function cheapEmbed(text) {
+  // Embedder barato sin deps: hashing a 64 dims.
+  // Ojo: esto no compite con MiniLM, pero funciona para gating + demo.
+  const n = 64;
+  const vec = new Array(n).fill(0);
+  const s = normalize(text).toLowerCase();
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    vec[(c * 131 + i * 17) % n] += 1;
   }
+  // normalize
+  const norm = Math.sqrt(vec.reduce((acc, x) => acc + x * x, 0)) || 1;
+  return vec.map((x) => x / norm);
+}
 
+function getStore() {
+  // Memoria “caliente” por instancia (Serverless warm). No persistente garantizada.
+  if (!globalThis.__AKUMA_STORE__) {
+    globalThis.__AKUMA_STORE__ = {
+      items: [],
+      seeded: false,
+    };
+  }
+  return globalThis.__AKUMA_STORE__;
+}
+
+function storeMemory({
+  text,
+  is_critical = false,
+  critical_id = null,
+  channel = "general",
+  lambda = null,
+}) {
+  const store = getStore();
+  const created_at = nowMs();
+  const emb = cheapEmbed(text);
   store.items.push({
     text,
-    is_critical: !!is_critical,
-    critical_id: is_critical ? critical_id : null,
+    is_critical,
+    critical_id,
     channel,
-    lambda,
-    ts: now(),
+    lambda: lambda ?? (is_critical ? DEFAULTS.lambda_critical : DEFAULTS.lambda_noise),
+    created_at,
+    emb,
   });
 }
 
-function upsertBaseCritical(req) {
-  const store = ensureStore(req);
+function seedCriticalBase() {
+  const store = getStore();
+  if (store.seeded) return;
 
-  // Seed only once (detect by one of the critical base IDs)
-  if (store.items.some((x) => x.critical_id === "company_services")) return;
-
-  for (const r of CRITICAL_BASE) {
-    store.items.push({
+  for (const r of DEFAULT_CRITICAL_RULES) {
+    storeMemory({
       text: r.text,
       is_critical: true,
       critical_id: r.critical_id,
-      channel: r.channel || "core",
+      channel: r.channel || "policy",
       lambda: DEFAULTS.lambda_critical,
-      ts: now(),
     });
   }
+
+  store.seeded = true;
 }
 
-export function retrieveSecureContext(req, query, budgetTokens = DEFAULTS.max_tokens) {
-  upsertBaseCritical(req);
-  const store = ensureStore(req);
+function decayWeight(item) {
+  const age_s = (nowMs() - item.created_at) / 1000.0;
+  const lam = item.lambda ?? DEFAULTS.lambda_noise;
+  return Math.exp(-lam * age_s);
+}
 
-  // Score items deterministically
-  const scored = store.items
-    .map((item) => {
-      const baseScore = scoreByHeuristics(query, item);
-      const w = decayWeight(item);
-      const score = baseScore * (item.is_critical ? 1.0 : w);
-      return { item, score };
+function isInjectionLike(text) {
+  const lower = (text || "").toLowerCase();
+  return (
+    /ignore (all|previous)|system prompt|developer message|jailbreak|do anything now|dan mode/.test(
+      lower
+    ) || /injection|prompt injection|override/.test(lower)
+  );
+}
+
+export function retrieveSecureContext(query) {
+  seedCriticalBase();
+
+  const store = getStore();
+  const qemb = cheapEmbed(query || "");
+  const mustHaveIds = [
+    "policy_pricing",
+    "policy_contact",
+    "policy_safety",
+    "policy_scope",
+    "policy_no_tutoring",
+    "policy_no_code",
+    "company_services",
+  ];
+
+  // 1) siempre incluir must-have (supersede por critical_id)
+  const byId = new Map();
+  for (const it of store.items) {
+    if (it.is_critical && it.critical_id && mustHaveIds.includes(it.critical_id)) {
+      byId.set(it.critical_id, it); // último gana
+    }
+  }
+  const must = Array.from(byId.values());
+
+  // 2) ranking por similitud + viabilidad (decay)
+  const ranked = store.items
+    .map((it) => {
+      const sim = cosineSim(qemb, it.emb);
+      const w = decayWeight(it);
+      const viable = DEFAULTS.alpha * sim + DEFAULTS.beta * w;
+
+      // Penaliza inyección en recuerdos “no críticos”
+      const inj = isInjectionLike(it.text);
+      const injPenalty = inj && !it.is_critical ? DEFAULTS.injection_penalty : 1.0;
+
+      return { it, sim, w, viable: viable * injPenalty };
     })
-    .sort((a, b) => b.score - a.score);
+    .filter((x) => x.viable >= DEFAULTS.threshold || x.it.is_critical)
+    .sort((a, b) => b.viable - a.viable);
 
-  // Pack within token budget
-  const chosen = [];
+  // 3) ensamblar bajo presupuesto (tokens)
+  const budget = DEFAULTS.max_tokens;
   let used = 0;
+  const chosen = [];
 
-  for (const { item } of scored) {
-    const line = `• [${item.channel}] ${item.text}`;
-    const t = tokenizeApprox(line);
-    if (used + t > budgetTokens) continue;
+  const pushIfFits = (line) => {
+    const t = estimateTokens(line);
+    if (used + t > budget) return false;
     chosen.push(line);
     used += t;
-    if (used >= budgetTokens) break;
+    return true;
+  };
+
+  // Primero must-have
+  for (const it of must) {
+    const line = `[CRITICAL/${it.channel}/${it.critical_id}] ${it.text}`;
+    pushIfFits(line);
   }
 
-  // Ensure must-have critical IDs are included if budget allows
-  const mustHaveIds = ["policy_pricing", "policy_no_code", "no_tutoring", "policy_safety", "company_services", "company_claims"];
-  for (const id of mustHaveIds) {
-    const found = store.items.find((x) => x.critical_id === id);
-    if (!found) continue;
-    // evita duplicados (chosen contiene el texto, no el id)
-    if (chosen.some((x) => x.includes(found.text))) continue;
-    {
-      const t = `• [${found.channel}] ${found.text}`;
-      const tt = tokenizeApprox(t);
-      if (used + tt <= budgetTokens) {
-        chosen.unshift(t);
-        used += tt;
-      }
-    }
+  // Luego el resto
+  for (const x of ranked) {
+    const it = x.it;
+    // Evita duplicar IDs
+    if (it.is_critical && it.critical_id && mustHaveIds.includes(it.critical_id)) continue;
+
+    const tag = it.is_critical ? `CRITICAL/${it.channel}/${it.critical_id}` : `MEM/${it.channel}`;
+    const line = `[${tag}] ${it.text}`;
+    if (!pushIfFits(line)) break;
   }
 
   return chosen.join("\n");
 }
 
-function classifyUserMessage(msg) {
-  const lower = (msg || "").toLowerCase();
+function classifyIntent(msg) {
+  const lower = (msg || "").toLowerCase().trim();
+
+  const isGreeting = /^(hola|buenas|buenos días|buenas tardes|buenas noches|hey|hi|hello)\b/.test(
+    lower
+  );
+
+  const isConfirmation = /^(si|sí|ok|va|dale|de acuerdo|correcto)\b/.test(lower);
+
+  const isServicesAsk =
+    /\b(que servicios tienen|qué servicios tienen|servicios|qué ofrecen|que ofrecen|a qué se dedican|catalogo|catálogo)\b/.test(
+      lower
+    );
+
+  const isProjectAsk =
+    /\b(quiero|necesito|busco|me interesa)\b.*\b(proyecto|sistema|solución|solucion|implementación|automatización|instalación|desarrollo)\b/.test(
+      lower
+    ) || /\b(cotización|cotizar|contratar|propuesta)\b/.test(lower);
+
+  const isHowItWorks =
+    /\b(c[oó]mo funcionas|cómo funcionas|algoritmo|arquitectura|cómo opera|como opera|gobernador|governor|app_gov|akuma)\b/.test(
+      lower
+    );
+
+  const isHomework =
+    /\b(tarea|homework|examen|proyecto escolar|resolver mi tarea|ayúdame con mi tarea|enséñame|clase|100 conceptos|lista de)\b/.test(
+      lower
+    );
+
+  const isGenericTechTutorial =
+    /(c[oó]digo|script|snippet|tutorial|paso a paso|cómo programar|plantilla html|ejemplo en|hazme un programa|arduino|react|node\.js|kotlin|android)/i.test(
+      lower
+    );
 
   const isWeapons =
-    /bomba casera|explosivo|molotov|detonador|tnt|dinamita|arma artesanal|fabricar arma/.test(lower);
+    /bomba casera|explosivo|molotov|detonador|tnt|dinamita|arma artesanal|fabricar arma/.test(
+      lower
+    );
 
   const isCrime =
-    /hackear|clonar tarjeta|fraude|delito|crimen|estafa|phishing|robar|secuestrar/.test(lower);
+    /hackear|clonar tarjeta|fraude|delito|crimen|estafa|phishing|robar|secuestrar/.test(
+      lower
+    );
 
   const isMedical =
-    /dosis|miligramos|mg\/kg|tratamiento|quimioterapia|medicamento|pastilla|antibi[oó]tico|receta m[eé]dica/.test(lower);
+    /dosis|miligramos|mg\/kg|tratamiento|quimioterapia|nivolumab|medicamento|pastilla|antibi[oó]tico|receta m[eé]dica/.test(
+      lower
+    );
 
   const isPolitics =
-    /presidente|elecci[oó]n|partido|pol[ií]tica nacional|gobierno|senador|diputado|amlo|lopez obrador/.test(lower);
+    /presidente|elecci[oó]n|partido|pol[ií]tica nacional|gobierno|senador|diputado|lopez obrador|amlo/.test(
+      lower
+    );
 
   const isReligion =
     /dios|iglesia|relig[ií]on|milagro|pecado|santo|virgen de guadalupe/.test(lower);
 
-  const isCooking =
-    /receta|ceviche|mole|tamal(es)?|pastel|guiso|cocina(r)?|ingredientes|hornear|marinar/.test(lower);
-
-  const isGenericTechTutorial =
-    /(c[oó]digo|script|snippet|tutorial|paso a paso|plantilla html|programar en|ejemplo en (html|javascript|python|java|arduino|react|node|kotlin|android))/i.test(lower);
-
-  // Peticiones típicas de “tarea / clase / lista académica” (fuera de alcance del chatbot)
-  const isHomework =
-    /(\btarea\b|homework|\bexamen\b|resu[eé]lveme|resuelve|hazme mi tarea|\bconceptos\b|lista de\s*\d+|dame\s*\d+\s*(conceptos|definiciones)|ecuaci[oó]n de\s*bernoulli|bernoulli)/i.test(
+  const clearlyOffDomain =
+    /(hor[oó]scopo|signo zodiacal|poema de amor|cuento er[oó]tico|fanfic|fanfics|chiste verde)/.test(
       lower
     );
 
-  const isParadoxDomain =
-    /paradox systems|paradoxsystems|energ[ií]a solar|panel(es)? solar(es)?|fotovoltaic|fotovoltaico|automatizaci[oó]n|casa inteligente|hogar inteligente|plc|hmi|scada|ingenier[ií]a|ingenieria|software|aplicaci[oó]n|app(s)?|desarrollo de software|rob[oó]tica|sensores|control|videovigilancia|c[aá]maras|accesos|cableado estructurado|contra incendio|sistema contra incendio|bater[ií]as|inversor|desal|ósmosis|tratamiento de agua|bomba(s)?|tuber[ií]a|hidráulic|caudal|acuacultur|larvicultur|ost[ií]on|maricultur/i.test(lower);
-
-  const clearlyOffDomain =
-    /(hor[oó]scopo|zodiacal|poema de amor|cuento er[oó]tico|fanfic|chiste verde)/.test(lower);
-
   const isDistress =
-    /se me perdi[oó] mi perro|perd[ií] a mi perro|se me perdi[oó] mi mascota|perd[ií] a mi mascota|mi perro se muri[oó]|mi mascota se muri[oó]|estoy muy triste|me siento muy mal|estoy deprimid[oa]|tengo mucha ansiedad/.test(lower);
+    /se me perdi[oó] mi perro|perd[ií] a mi perro|se me perdi[oó] mi mascota|perd[ií] a mi mascota|mi perro se muri[oó]|mi mascota se muri[oó]|estoy muy triste|me siento muy mal|estoy deprimid[oa]|tengo mucha ansiedad/.test(
+      lower
+    );
 
   const isPricing =
-    /cu[aá]nto cuesta|cu[aá]nto vale|cu[aá]nto sale|precio|presupuesto|cotizaci[oó]n|\bmxn\b|\busd\b|pesos/.test(lower);
+    /cu[aá]nto cuesta|cu[aá]nto vale|cu[aá]nto sale|precio|presupuesto|cotizaci[oó]n|\bmxn\b|\busd\b|pesos/.test(
+      lower
+    );
+
+  // “Paradox domain” ampliado: incluye servicios y términos típicos de proyectos.
+  const isParadoxDomain =
+    /paradox systems|paradoxsystems|energ[ií]a solar|panel(es)? solar(es)?|fotovoltaic|fotovoltaico|bater[ií]as|inversor|victron|automatizaci[oó]n|casa inteligente|hogar inteligente|plc|scada|hmi|ingenier[ií]a|rob[oó]tica|sensores|videovigilancia|cableado estructurado|contra incendio|software|aplicaci[oó]n|app(s)?|desarrollo de software|sistema a medida|control de accesos/.test(
+      lower
+    );
 
   return {
+    isGreeting,
+    isConfirmation,
+    isServicesAsk,
+    isProjectAsk,
+    isHowItWorks,
+    isHomework,
+    isGenericTechTutorial,
     isWeapons,
     isCrime,
     isMedical,
     isPolitics,
     isReligion,
-    isCooking,
-    isGenericTechTutorial,
-    isHomework,
-    isParadoxDomain,
     clearlyOffDomain,
     isDistress,
     isPricing,
+    isParadoxDomain,
   };
 }
 
-export function decide(msg) {
-  const flags = classifyUserMessage(msg);
+function replyServices() {
+  return (
+    "Servicios de Paradox Systems:\n" +
+    "1) Energía solar (residencial/comercial/industrial)\n" +
+    "2) Automatización residencial e industrial (PLC/HMI/SCADA)\n" +
+    "3) Software a medida (dashboards, sistemas internos, apps)\n" +
+    "4) Videovigilancia y control de accesos\n" +
+    "5) Cableado estructurado\n" +
+    "6) Sistemas contra incendios\n" +
+    "7) Diseño y construcción de máquinas\n" +
+    "8) Ingeniería marítima\n\n" +
+    "¿Cuál te interesa y qué quieres lograr?"
+  );
+}
 
-  // 🔥 Armamento / explosivos / crimen
+function replyIntake() {
+  return (
+    "Perfecto. Para aterrizar tu proyecto necesito 4 datos:\n" +
+    "1) ¿Qué quieres construir o mejorar (objetivo)?\n" +
+    "2) ¿Dónde será (ciudad/entorno: casa/negocio/industria)?\n" +
+    "3) Restricciones (tiempo, espacio, energía disponible, internet, normativa)\n" +
+    "4) Éxito medible (qué significa “ya quedó”)\n\n" +
+    "Con eso te digo enfoque, riesgos y siguiente paso."
+  );
+}
+
+function replyScopeRedirect() {
+  return (
+    "Este asistente está enfocado en servicios y proyectos de Paradox Systems (solar, automatización, software, seguridad, robótica aplicada).\n" +
+    "No funciona como centro de información general ni como tutor.\n\n" +
+    "Si tu consulta se relaciona con un proyecto real, dime: objetivo + lugar + restricciones."
+  );
+}
+
+export function decide(msg) {
+  const flags = classifyIntent(msg);
+
+  // Seguridad dura
   if (flags.isWeapons || flags.isCrime) {
     return {
       mode: "block",
       reason: "safety",
       reply:
-        "Este asistente no puede ayudar con instrucciones peligrosas o ilegales. " +
-        "Si tu duda es sobre soluciones de ingeniería dentro de la legalidad (energía, automatización, software, seguridad), con gusto te oriento.",
+        "No puedo ayudar con armas, explosivos o actividades ilegales. " +
+        "Si tu consulta es un proyecto legal de ingeniería/automatización/energía, describe objetivo y restricciones y lo revisamos.",
       flags,
     };
   }
 
-  // ⚕️ Consultas médicas sensibles
   if (flags.isMedical) {
     return {
       mode: "block",
       reason: "medical",
       reply:
-        "No puedo dar recomendaciones médicas, de dosis o tratamientos. Para temas de salud, consulta a un profesional autorizado.",
+        "No puedo dar recomendaciones médicas, dosis ni tratamientos. Para eso consulta un profesional de salud autorizado.",
       flags,
     };
   }
 
-  // 🧠 Angustia / pérdida de mascota / ánimo muy bajo
+  // Apoyo humano
   if (flags.isDistress) {
     return {
       mode: "support",
       reason: "distress",
       reply:
-        "Lamento mucho lo que estás pasando. Es válido sentirte así, y no tienes por qué cargarlo solo. " +
-        "Hablar con alguien de confianza o un profesional suele ayudar más que un mensaje en pantalla.\n\n" +
-        "Si quieres, también podemos enfocarnos en un tema técnico (energía, automatización, software, robótica) para aterrizar soluciones.",
+        "Lamento lo que estás pasando. No tienes por qué cargarlo solo: habla con alguien de confianza o un profesional.\n\n" +
+        "Si quieres, también puedo ayudarte a distraerte aterrizando un proyecto técnico (solar, automatización, software, seguridad).",
       flags,
     };
   }
 
-  // 🍳 Cocina / recetas — fuera de alcance
-  if (flags.isCooking) {
-    return {
-      mode: "redirect",
-      reason: "cooking",
-      reply:
-        "Paradox Systems no se dedica a recetas. Este asistente es técnico (energía solar, automatización, ingeniería, software, robótica y seguridad). " +
-        "Si tu pregunta cae ahí, dime qué proyecto tienes en mente y lo revisamos.",
-      flags,
-    };
-  }
-
-  // 💰 Regla dura: NO DAR PRECIOS
+  // Precios (regla dura: nunca números)
   if (flags.isPricing) {
     return {
       mode: "fixed_reply",
       reason: "pricing",
       reply:
-        "El costo se calcula de forma personalizada según consumo, ubicación, complejidad y materiales. " +
-        "Si quieres una cotización formal, lo correcto es evaluar tu caso.\n\n" +
-        "Para seguimiento directo puedes escribir al WhatsApp **+526122173332**.",
+        "La cotización se calcula de forma personalizada según consumo, ubicación, complejidad y materiales. " +
+        "Si quieres avanzar, dime si es casa/negocio/industria y qué necesitas (solar, baterías, automatización, cámaras, software). " +
+        "Para cotización formal: WhatsApp +526122173332.",
       flags,
     };
   }
 
-  // 🚫 No tutorías / tareas / listas académicas
-  if (flags.isHomework) {
+  // Intents “buenos” que NO requieren LLM
+  if (flags.isGreeting) {
     return {
-      mode: "redirect",
-      reason: "no_tutoring",
+      mode: "fixed_reply",
+      reason: "greeting",
       reply:
-        "Este asistente no da clases ni resuelve tareas. " +
-        "Si tu pregunta está ligada a un proyecto real de Paradox Systems (energía solar, automatización, software, seguridad, robótica), " +
-        "dime el contexto y te digo cómo lo abordaríamos y qué información necesitamos.",
+        "Hola. Puedo ayudarte con proyectos y servicios de Paradox Systems (solar, automatización, software, seguridad, robótica aplicada).\n\n" +
+        "Dime qué necesitas o escribe “servicios” para ver el catálogo.",
       flags,
     };
   }
 
-  // 🚫 No tutoriales / snippets / paso a paso (aunque sea tema técnico)
-  if (flags.isGenericTechTutorial) {
+  if (flags.isServicesAsk) {
+    return { mode: "fixed_reply", reason: "services", reply: replyServices(), flags };
+  }
+
+  if (flags.isProjectAsk || (flags.isConfirmation && !flags.isParadoxDomain)) {
+    return { mode: "fixed_reply", reason: "intake", reply: replyIntake(), flags };
+  }
+
+  if (flags.isHowItWorks) {
     return {
-      mode: "redirect",
-      reason: "no_code",
+      mode: "fixed_reply",
+      reason: "how_it_works",
       reply:
-        "Aquí no damos tutoriales ni entregamos código paso a paso. " +
-        "Sí puedo orientarte a nivel proyecto: alcance, arquitectura, opciones y siguiente paso para implementarlo con Paradox Systems.",
+        "APP/VPP Governor es una capa de *gobernanza de contexto*: separa reglas críticas de ruido, aplica decaimiento diferencial y evita que el contexto se corrompa por inundación o inyección.\n\n" +
+        "En decisiones de alto riesgo (vida/seguridad), se usa con supervisión humana y validación por procedimiento. Si me dices el caso, te digo el alcance realista.",
       flags,
     };
   }
 
-  // ✅ Regla dura de alcance: solo temas relacionados con servicios/capacidades de Paradox Systems
+  // Anti-tutor / anti-centro-de-información-general
+  if ((flags.isHomework || flags.isGenericTechTutorial) && !flags.isParadoxDomain) {
+    return { mode: "redirect", reason: "no_tutoring", reply: replyScopeRedirect(), flags };
+  }
+
+  // Off-domain explícito
+  if (flags.isPolitics || flags.isReligion || flags.clearlyOffDomain) {
+    return { mode: "redirect", reason: "off_domain", reply: replyScopeRedirect(), flags };
+  }
+
+  // Si no está en dominio, redirige
   if (!flags.isParadoxDomain) {
-    return {
-      mode: "redirect",
-      reason: "scope",
-      reply:
-        "Este asistente está enfocado en servicios y proyectos de Paradox Systems (energía solar, automatización, ingeniería, software, robótica y seguridad). " +
-        "Si tu consulta cae ahí, dime qué necesitas (qué quieres construir, dónde, restricciones) y lo aterrizamos.",
-      flags,
-    };
+    return { mode: "redirect", reason: "not_paradox_domain", reply: replyScopeRedirect(), flags };
   }
 
-  // 🏛️ Política / religión / off-domain evidente
-  if (flags.clearlyOffDomain || flags.isPolitics || flags.isReligion) {
-    return {
-      mode: "redirect",
-      reason: "off_domain",
-      reply:
-        "Este asistente está enfocado en servicios y proyectos de Paradox Systems. " +
-        "Si tu consulta es técnica y cae dentro de energía, automatización, software, robótica o seguridad, dime el contexto y lo revisamos.",
-      flags,
-    };
-  }
-
-  // ✅ Todo lo demás: se delega al modelo
-  return {
-    mode: "llm",
-    reason: "normal",
-    reply: null,
-    flags,
-  };
+  // ✅ En dominio → LLM
+  return { mode: "llm", reason: "normal", reply: null, flags };
 }
