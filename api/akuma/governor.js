@@ -44,6 +44,12 @@ const CRITICAL_BASE = [
       "Paradox Systems se enfoca en: energía solar, automatización residencial e industrial, ingeniería, software a medida, robótica aplicada y soluciones de seguridad.",
   },
   {
+    critical_id: "policy_scope",
+    channel: "scope",
+    text:
+      "ALCANCE: Este asistente solo da información general y orientación relacionada con servicios y proyectos de Paradox Systems. No funciona como centro de información general.",
+  },
+  {
     is_critical: true,
     critical_id: "no_prices",
     channel: "pricing",
