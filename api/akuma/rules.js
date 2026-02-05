@@ -12,6 +12,13 @@ export const DEFAULT_CRITICAL_RULES = [
       "POLÍTICA: No entregar scripts completos ni tutoriales paso a paso. Dar explicación a alto nivel y derivar a proyecto formal si aplica.",
   },
   {
+  is_critical: true,
+  critical_id: "no_tutoring",
+  channel: "scope",
+  text:
+    "Regla: Este asistente NO da clases, no resuelve tareas, no entrega listas académicas ni derivaciones. Solo da información general y orientación relacionada con servicios y proyectos de Paradox Systems.",
+  },
+  {
     critical_id: "policy_contact",
     channel: "policy",
     text:
