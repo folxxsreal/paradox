@@ -47,7 +47,7 @@ const CRITICAL_BASE = [
     critical_id: "policy_scope",
     channel: "scope",
     text:
-      "ALCANCE: Este asistente solo da información general y orientación relacionada con servicios y proyectos de Paradox Systems. No funciona como centro de información general.",
+      "ALCANCE: Este asistente solo da información general y orientación relacionada con servicios y proyectos de Paradox Systems. No funciona como centro de información general, no proporciona soluciones para tareas, ni apoyo para trabajos de investigacion.",
   },
   {
     is_critical: true,
