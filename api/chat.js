@@ -4,7 +4,6 @@ import {
   auditOutput,
   decide,
   getGovernorDefaults,
-  selectGovernedContext,
 } from "./paradox-governor/governor.js";
 
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -169,7 +168,19 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "reCAPTCHA failed" });
     }
 
-    const decision = decide(message);
+    const defaults = getGovernorDefaults();
+    const governorCfg = {
+      horizon: numberEnv("PARADOX_GOV_HORIZON", defaults.horizon, { min: 1, max: 64 }),
+      min_score: numberEnv("PARADOX_GOV_MIN_SCORE", defaults.min_score, { min: 0, max: 1 }),
+      max_context_tokens: numberEnv(
+        "PARADOX_GOV_MAX_CONTEXT_TOKENS",
+        defaults.max_context_tokens,
+        { min: 120, max: 1600 },
+      ),
+    };
+    const decision = decide(message, governorCfg);
+    const selection = decision.contextSelection;
+
     if (decision.mode !== "llm") {
       return res.status(200).json(
         responseBody(decision.reply, {
@@ -178,20 +189,11 @@ export default async function handler(req, res) {
           stage: "pre",
           mode: decision.mode,
           reason: decision.reason,
+          reasons: decision.reasons,
+          context: selection?.metrics || null,
         }),
       );
     }
-
-    const defaults = getGovernorDefaults();
-    const selection = selectGovernedContext(message, {
-      horizon: numberEnv("PARADOX_GOV_HORIZON", defaults.horizon, { min: 1, max: 64 }),
-      min_score: numberEnv("PARADOX_GOV_MIN_SCORE", defaults.min_score, { min: 0, max: 1 }),
-      max_context_tokens: numberEnv(
-        "PARADOX_GOV_MAX_CONTEXT_TOKENS",
-        defaults.max_context_tokens,
-        { min: 120, max: 1600 },
-      ),
-    });
 
     const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
     const temperature = numberEnv("GROQ_TEMPERATURE", 0.15, { min: 0, max: 1 });
@@ -243,6 +245,7 @@ export default async function handler(req, res) {
         stage: "post",
         mode: audited.allowed ? "allow" : "replace",
         reason: audited.reason,
+        reasons: audited.reasons,
         model,
         usage: data?.usage || null,
         context: selection.metrics,
