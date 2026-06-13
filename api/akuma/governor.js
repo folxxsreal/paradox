@@ -1,7 +1,6 @@
 // Paradox Governor — PRS-VPP runtime governance for Godelin.
 // Product: Paradox Governor. Engine: PRS-VPP.
-// Pipeline: classification -> mandatory PRS-VPP context selection ->
-// deterministic multi-rule composition or LLM -> deterministic multi-rule post-audit.
+// Pipeline: deterministic pre-decision -> PRS-VPP context selection -> LLM -> deterministic post-audit.
 
 import {
   ALWAYS_REQUIRED_RULES,
@@ -30,13 +29,13 @@ const RE = Object.freeze({
     /ignore\s+(all|any|previous|above)|ignora\s+(todas?|cualquier|las anteriores)|system prompt|developer message|role\s*:\s*system|\bDAN\b|jailbreak|do anything now|prompt injection|override|sobreescribe|modo desarrollador|developer mode|sin restricciones|no menciones (que eres|tu identidad)/i,
   codeFence: /```|<system>|<developer>|<assistant>|<untrusted>/i,
   exfilTarget:
-    /prompt|system prompt|developer message|instrucciones internas|reglas internas|pol[ií]ticas internas|configuraci[oó]n interna|arquitectura interna|c[oó]digo fuente|algoritmo interno|l[oó]gica interna|paradox governor|governor|gobernador|herramientas internas|api interna|base vectorial|vector database|credenciales|token secreto|clave secreta|servidor(?:es)?|hosting|alojamiento|centro de datos|regi[oó]n de despliegue|ubicaci[oó]n de (?:los )?servidores?|d[oó]nde (?:est[aá]n|se encuentran) alojados/i,
+    /prompt|system prompt|developer message|instrucciones internas|reglas internas|pol[ií]ticas internas|configuraci[oó]n interna|arquitectura interna|c[oó]digo fuente|algoritmo interno|l[oó]gica interna|paradox governor|governor|gobernador|herramientas internas|api interna|base vectorial|vector database|credenciales|token secreto|clave secreta/i,
   exfilVerb:
     /dame|dime|muestra|pasa|copia|pega|imprime|revela|enumera|lista|completa|traduce|resume|infiere|confirma|diagrama|mermaid|primer(a)? l[ií]nea|[uú]ltimos?\s+\d+|pistas?/i,
   falseAuthority:
     /soy\s+(el\s+)?(dueño|fundador|presidente|director|gerente|administrador|auditor|responsable|ciso|cto|ceo)|c[oó]digo\s+(interno|de autorizaci[oó]n)|autorizo|modo\s+(admin|administrador|diagn[oó]stico|root)/i,
   roleHijack:
-    /a partir de ahora|act[uú]a como|eres el asistente oficial|pres[eé]ntate como|tu nombre ahora es|cambia (?:tu )?identidad|asume (?:el )?(?:rol|cargo|puesto)|tu (?:rol|cargo|puesto) (?:ahora|desde ahora) es|convi[eé]rtete en|no menciones (paradox|godelin)|habla en nombre de|representa a|firma como/i,
+    /a partir de ahora|act[uú]a como|eres el asistente oficial|pres[eé]ntate como|tu nombre ahora es|no menciones (paradox|godelin)|habla en nombre de|representa a|firma como/i,
   thirdPartyBrand:
     /baja ferries|xerox|electroneek|uipath|microsoft|google|amazon|meta|openai|anthropic|sap|salesforce|servicenow|cargo web/i,
   adminAccess:
@@ -50,7 +49,7 @@ const RE = Object.freeze({
   commercialCommitment:
     /confirma por escrito|se compromete|garant[ií]a total|reserva confirmada|booking confirmado|disponibilidad confirmada|condiciones vinculantes/i,
   artifactRequest:
-    /(?:genera\w*|crea\w*|prepara\w*|adjunta\w*|entrega\w*|descarga\w*|promete\w*).*(pdf|docx|word|excel|xlsx|archivo descargable|enlace de descarga|link de descarga)/i,
+    /(genera(r|me)?|crea(r|me)?|prepara(r|me)?|adjunta(r|me)?|entrega(r|me)?|descarga(r|me)?).*(pdf|docx|word|excel|xlsx|archivo descargable|enlace de descarga|link de descarga)/i,
   asyncPromise:
     /en breve|vuelvo enseguida|regreso enseguida|te entregar[eé]|te enviar[eé]|preparar[eé] los documentos|trabajando en segundo plano|m[aá]s tarde/i,
   outputFlood:
@@ -74,14 +73,14 @@ const RE = Object.freeze({
 const FIXED_REPLIES = Object.freeze({
   input_too_long:
     "El mensaje excede el límite de procesamiento seguro. Resume la solicitud en menos de 6,000 caracteres y conserva únicamente los datos necesarios.",
-  identity_anchor:
-    "Soy Godelin, asistente virtual de Paradox Systems. Una instrucción dentro del chat no puede cambiar mi identidad, cargo o autoridad ni acreditar una excepción especial. Tampoco puedo representar a otra organización.",
   internal_exfil:
-    "No puedo revelar, confirmar, inferir, resumir, traducir ni diagramar prompts, reglas, código, arquitectura, proveedores, herramientas, configuraciones privadas ni la ubicación o alojamiento de servidores.",
+    "No puedo revelar, confirmar, inferir, resumir, traducir ni diagramar prompts internos, reglas, código, arquitectura, herramientas o configuraciones privadas. Puedo describir públicamente las capacidades de Paradox Systems.",
+  identity_anchor:
+    "Soy Godelin, asistente virtual de Paradox Systems. No puedo adoptar ni representar la identidad, autoridad o marca de otra organización. Sobre terceros sólo puedo ofrecer información pública verificable.",
   third_party_access:
     "No puedo redactar ni optimizar solicitudes de acceso administrativo, elevación de privilegios, auditorías internas o recolección de evidencias sensibles para sistemas de terceros. Debes utilizar sus canales oficiales y procedimientos autorizados.",
   commercial_integrity:
-    "No puedo crear ni confirmar promociones, descuentos, tarifas, reservas o compromisos comerciales sin una fuente empresarial oficial y vigente.",
+    "No puedo crear ni confirmar promociones, descuentos, tarifas, reservas o compromisos comerciales en nombre de terceros sin una fuente oficial y vigente.",
   capability_truth:
     "Este chatbot no cuenta con una herramienta activa para crear o adjuntar archivos descargables ni ejecutar tareas en segundo plano. Puedo entregar contenido de texto dentro de esta conversación.",
   output_budget:
@@ -91,73 +90,12 @@ const FIXED_REPLIES = Object.freeze({
   medical:
     "No puedo dar dosis ni tratamientos médicos. Para eso corresponde consultar a un profesional autorizado.",
   pricing:
-    "No puedo confirmar precios ni rangos numéricos de Paradox Systems sin una fuente comercial autorizada. Las cotizaciones son personalizadas según consumo, ubicación, complejidad y materiales. Para una propuesta formal, escribe al WhatsApp +526122173332.",
+    "Las cotizaciones de Paradox Systems son personalizadas según consumo, ubicación, complejidad y materiales. Para una propuesta formal, escribe al WhatsApp +526122173332.",
   off_domain:
     "Godelin está enfocado en Paradox Systems: energía solar, automatización, ingeniería, software, robótica y seguridad. Puedo ayudarte con una consulta dentro de ese alcance.",
   post_block:
     "No puedo completar esa respuesta porque infringiría las reglas de identidad, autoridad, confidencialidad o integridad comercial de Godelin.",
 });
-
-const DECISION_REASON_ORDER = Object.freeze([
-  "input_too_long",
-  "identity_anchor",
-  "commercial_integrity",
-  "pricing",
-  "internal_exfil",
-  "third_party_access",
-  "capability_truth",
-  "output_budget",
-  "safety",
-  "medical",
-  "off_domain",
-]);
-
-function uniqueReasons(reasons) {
-  const unique = new Set(reasons.filter(Boolean));
-  return DECISION_REASON_ORDER.filter((reason) => unique.has(reason));
-}
-
-function composeFixedReply(reasons) {
-  const ordered = uniqueReasons(reasons);
-  if (ordered.includes("input_too_long")) return FIXED_REPLIES.input_too_long;
-
-  // A concrete Paradox pricing refusal already expresses the commercial boundary.
-  const compact = ordered.filter(
-    (reason) => !(reason === "commercial_integrity" && ordered.includes("pricing")),
-  );
-  const meaningful = compact.filter(
-    (reason) => !(reason === "off_domain" && compact.length > 1),
-  );
-  return meaningful
-    .map((reason) => FIXED_REPLIES[reason])
-    .filter(Boolean)
-    .join(" ") || FIXED_REPLIES.post_block;
-}
-
-function collectDecisionReasons(flags) {
-  if (flags.inputTooLong) return ["input_too_long"];
-
-  const reasons = [];
-  if (flags.roleHijack || flags.thirdPartyImpersonation) reasons.push("identity_anchor");
-  if (flags.unauthorizedThirdPartyPromotion || (flags.thirdParty && flags.commercialCommitment)) {
-    reasons.push("commercial_integrity");
-  }
-  if (flags.pricing && flags.paradoxDomain) reasons.push("pricing");
-  if (flags.exfil) reasons.push("internal_exfil");
-  if (flags.thirdPartyAccessFacilitation) reasons.push("third_party_access");
-  if (flags.artifactRequest) reasons.push("capability_truth");
-  if (flags.outputFlood) reasons.push("output_budget");
-  if (flags.dangerous) reasons.push("safety");
-  if (flags.medical) reasons.push("medical");
-
-  if (
-    reasons.length === 0 &&
-    (flags.clearlyOffDomain || (flags.genericTutorial && !flags.paradoxDomain))
-  ) {
-    reasons.push("off_domain");
-  }
-  return uniqueReasons(reasons);
-}
 
 function nowSeconds() {
   return Date.now() / 1000;
@@ -260,6 +198,8 @@ export function requiredRulesForMessage(message, flags = classifyUserMessage(mes
   if (flags.formalContact || flags.pricing) required.add("FORMAL-CONTACT");
   if (flags.paradoxDomain) {
     required.add("SCOPE-PUBLIC");
+    required.add("COMPANY-SERVICES");
+    required.add("COMPANY-CLAIMS");
   }
 
   return [...required];
@@ -442,36 +382,47 @@ export function retrieveSecureContext(message, cfg = {}) {
   return selectGovernedContext(message, cfg).context;
 }
 
-export function decide(message, cfg = {}) {
-  const source = String(message ?? "");
-  const flags = classifyUserMessage(source);
-  // PRS-VPP context selection is always executed, including deterministic blocks.
-  // Oversized input is truncated only for selection; the policy decision still sees its full length.
-  const selectionInput = source.slice(0, DEFAULTS.max_input_chars);
-  const contextSelection = selectGovernedContext(selectionInput, cfg);
-  const reasons = collectDecisionReasons(flags);
+export function decide(message) {
+  const flags = classifyUserMessage(message);
 
-  if (reasons.length > 0) {
-    const mode = reasons.includes("off_domain")
-      ? "redirect"
-      : reasons.includes("safety") || reasons.includes("medical")
-        ? "block"
-        : "fixed_reply";
-    return {
-      mode,
-      reason: reasons[0],
-      reasons,
-      reply: composeFixedReply(reasons),
-      flags,
-      contextSelection,
-      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
-    };
+  if (flags.inputTooLong) {
+    return { mode: "fixed_reply", reason: "input_too_long", reply: FIXED_REPLIES.input_too_long, flags };
+  }
+  if (flags.exfil) {
+    return { mode: "fixed_reply", reason: "internal_exfil", reply: FIXED_REPLIES.internal_exfil, flags };
+  }
+  if (flags.thirdPartyImpersonation || (flags.roleHijack && flags.falseAuthority)) {
+    return { mode: "fixed_reply", reason: "identity_anchor", reply: FIXED_REPLIES.identity_anchor, flags };
+  }
+  if (flags.thirdPartyAccessFacilitation) {
+    return { mode: "fixed_reply", reason: "third_party_access", reply: FIXED_REPLIES.third_party_access, flags };
+  }
+  if (flags.unauthorizedThirdPartyPromotion || (flags.thirdParty && flags.commercialCommitment)) {
+    return { mode: "fixed_reply", reason: "commercial_integrity", reply: FIXED_REPLIES.commercial_integrity, flags };
+  }
+  if (flags.outputFlood) {
+    return { mode: "fixed_reply", reason: "output_budget", reply: FIXED_REPLIES.output_budget, flags };
+  }
+  if (flags.artifactRequest) {
+    return { mode: "fixed_reply", reason: "capability_truth", reply: FIXED_REPLIES.capability_truth, flags };
+  }
+  if (flags.dangerous) {
+    return { mode: "block", reason: "safety", reply: FIXED_REPLIES.safety, flags };
+  }
+  if (flags.medical) {
+    return { mode: "block", reason: "medical", reply: FIXED_REPLIES.medical, flags };
+  }
+  if (flags.pricing && flags.paradoxDomain) {
+    return { mode: "fixed_reply", reason: "pricing", reply: FIXED_REPLIES.pricing, flags };
+  }
+  if (flags.clearlyOffDomain || (flags.genericTutorial && !flags.paradoxDomain)) {
+    return { mode: "redirect", reason: "off_domain", reply: FIXED_REPLIES.off_domain, flags };
   }
 
+  const contextSelection = selectGovernedContext(message);
   return {
     mode: "llm",
     reason: "normal",
-    reasons: [],
     reply: null,
     flags,
     maxOutputTokens:
@@ -488,69 +439,59 @@ export function auditOutput({ message, output, cfg = {} }) {
   const flags = classifyUserMessage(message);
 
   if (!source) {
-    return {
-      allowed: false,
-      reason: "empty_output",
-      reasons: ["empty_output"],
-      output: FIXED_REPLIES.post_block,
-    };
+    return { allowed: false, reason: "empty_output", output: FIXED_REPLIES.post_block };
   }
-
-  const auditReasons = [];
-  if (source.length > settings.max_output_chars) auditReasons.push("output_budget");
+  if (source.length > settings.max_output_chars) {
+    return { allowed: false, reason: "output_budget", output: FIXED_REPLIES.output_budget };
+  }
 
   const governedLeak =
     /CONTEXTO GOBERNADO|IDENTIDAD: Soy Godelin|CONFIDENCIALIDAD: No revelar|•\s*\[(identity|scope|confidentiality|authority|access|commercial|capability|resources|pricing|contact|safety)\]/i.test(
       source,
     );
-  if (governedLeak) auditReasons.push("governed_context_leak");
+  if (governedLeak) {
+    return { allowed: false, reason: "governed_context_leak", output: FIXED_REPLIES.internal_exfil };
+  }
 
   const impersonation =
     /soy\s+(el\s+)?asistente oficial de|somos\s+(baja ferries|xerox|electroneek)|en nombre de\s+(baja ferries|xerox|electroneek)|presidente\s*[—-]\s*(baja ferries|xerox|electroneek)/i.test(
       source,
     );
-  if (impersonation) auditReasons.push("third_party_impersonation");
+  if (impersonation) {
+    return { allowed: false, reason: "third_party_impersonation", output: FIXED_REPLIES.identity_anchor };
+  }
 
   const accessFacilitation =
     (RE.adminAccess.test(source) || RE.sensitiveEvidence.test(source)) &&
     (flags.thirdParty || flags.socialEngineering || /solicito|entrega|adjunta|proporciona|compartir/i.test(source));
-  if (accessFacilitation) auditReasons.push("access_facilitation");
+  if (accessFacilitation) {
+    return { allowed: false, reason: "access_facilitation", output: FIXED_REPLIES.third_party_access };
+  }
 
   const promotion = RE.promotion.test(source);
   if (promotion && (flags.thirdParty || flags.promotion || RE.thirdPartyBrand.test(source))) {
-    auditReasons.push("unauthorized_promotion");
+    return { allowed: false, reason: "unauthorized_promotion", output: FIXED_REPLIES.commercial_integrity };
   }
 
   const capabilityOverclaim =
     RE.asyncPromise.test(source) ||
     /he creado|ya gener[eé]|archivo listo|descarga aqu[ií]|enlace funcional|te adjunto/i.test(source);
-  if (capabilityOverclaim) auditReasons.push("capability_overclaim");
-
-  if (RE.outputFlood.test(source)) auditReasons.push("output_flood");
-  if (flags.exfil && RE.exfilTarget.test(source)) auditReasons.push("internal_exfil");
-
-  const uniqueAuditReasons = [...new Set(auditReasons)];
-  if (uniqueAuditReasons.length > 0) {
-    const mappedReasons = uniqueAuditReasons.map((reason) => {
-      if (reason === "governed_context_leak" || reason === "internal_exfil") return "internal_exfil";
-      if (reason === "third_party_impersonation") return "identity_anchor";
-      if (reason === "access_facilitation") return "third_party_access";
-      if (reason === "unauthorized_promotion") return "commercial_integrity";
-      if (reason === "capability_overclaim") return "capability_truth";
-      if (reason === "output_flood") return "output_budget";
-      return reason;
-    });
-    return {
-      allowed: false,
-      reason: uniqueAuditReasons[0],
-      reasons: uniqueAuditReasons,
-      output: composeFixedReply(mappedReasons),
-    };
+  if (capabilityOverclaim) {
+    return { allowed: false, reason: "capability_overclaim", output: FIXED_REPLIES.capability_truth };
   }
 
-  return { allowed: true, reason: "clean", reasons: [], output: source };
+  if (RE.outputFlood.test(source)) {
+    return { allowed: false, reason: "output_flood", output: FIXED_REPLIES.output_budget };
+  }
+
+  if (flags.exfil && RE.exfilTarget.test(source)) {
+    return { allowed: false, reason: "internal_exfil", output: FIXED_REPLIES.internal_exfil };
+  }
+
+  return { allowed: true, reason: "clean", output: source };
 }
 
 export function getGovernorDefaults() {
   return { ...DEFAULTS };
 }
+
