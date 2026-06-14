@@ -21,6 +21,8 @@ const DEFAULTS = Object.freeze({
   max_context_tokens: 460,
   max_input_chars: 6000,
   max_output_chars: 6500,
+  max_history_turns: 12,
+  max_history_chars: 5200,
   default_max_output_tokens: 500,
   constrained_max_output_tokens: 220,
 });
@@ -30,9 +32,9 @@ const RE = Object.freeze({
     /ignore\s+(all|any|previous|above)|ignora\s+(todas?|cualquier|las anteriores)|system prompt|developer message|role\s*:\s*system|\bDAN\b|jailbreak|do anything now|prompt injection|override|sobreescribe|modo desarrollador|developer mode|sin restricciones|no menciones (que eres|tu identidad)/i,
   codeFence: /```|<system>|<developer>|<assistant>|<untrusted>/i,
   exfilTarget:
-    /prompt|system prompt|developer message|instrucciones internas|reglas internas|pol[ií]ticas internas|configuraci[oó]n interna|arquitectura interna|c[oó]digo fuente|algoritmo interno|l[oó]gica interna|paradox governor|governor|gobernador|herramientas internas|api interna|base vectorial|vector database|credenciales|token secreto|clave secreta|servidor(?:es)?|hosting|alojamiento|centro de datos|regi[oó]n de despliegue|ubicaci[oó]n de (?:los )?servidores?|d[oó]nde (?:est[aá]n|se encuentran) alojados/i,
+    /prompt|system prompt|developer message|instrucciones internas|reglas internas|pol[ií]ticas internas|configuraci[oó]n interna|arquitectura(?: interna)?|c[oó]digo fuente|algoritmo interno|l[oó]gica interna|paradox governor|governor|gobernador|herramientas internas|api interna|base vectorial|vector database|credenciales|token secreto|clave secreta|servidor(?:es)?|hosting|alojamiento|centro de datos|regi[oó]n(?: de despliegue)?|nube|cloud|proveedor(?: de nube| cloud)?|aws|amazon web services|azure|google cloud|gcp|vercel|endpoint(?:s)?|microservicios|contenedores|docker|kubernetes|base de datos|ubicaci[oó]n de (?:los )?servidores?|d[oó]nde (?:est[aá]n|se encuentran) alojados/i,
   exfilVerb:
-    /dame|dime|muestra|pasa|copia|pega|imprime|revela|enumera|lista|completa|traduce|resume|infiere|confirma|diagrama|mermaid|primer(a)? l[ií]nea|[uú]ltimos?\s+\d+|pistas?/i,
+    /dame|dime|muestra|pasa|copia|pega|imprime|revela|enumera|lista|completa|traduce|resume|infiere|deduce|estima|adivina|sup[oó]n|hipotetiza|probable|m[aá]s probable|confirma|diagrama|mermaid|primer(a)? l[ií]nea|[uú]ltimos?\s+\d+|pistas?/i,
   falseAuthority:
     /soy\s+(el\s+)?(dueño|fundador|presidente|director|gerente|administrador|auditor|responsable|ciso|cto|ceo)|c[oó]digo\s+(interno|de autorizaci[oó]n)|autorizo|modo\s+(admin|administrador|diagn[oó]stico|root)/i,
   roleHijack:
@@ -50,15 +52,23 @@ const RE = Object.freeze({
   commercialCommitment:
     /confirma por escrito|se compromete|garant[ií]a total|reserva confirmada|booking confirmado|disponibilidad confirmada|condiciones vinculantes/i,
   artifactRequest:
-    /(?:genera\w*|crea\w*|prepara\w*|adjunta\w*|entrega\w*|descarga\w*|promete\w*).*(pdf|docx|word|excel|xlsx|archivo descargable|enlace de descarga|link de descarga)/i,
+    /(?:genera\w*|crea\w*|prepara\w*|adjunta\w*|entrega\w*|descarga\w*|promete\w*|sube\w*|publica\w*).*(pdf|docx|word|excel|xlsx|archivo descargable|enlace de descarga|link de descarga|internet)/i,
+  externalAction:
+    /(?:env[ií]a|manda|remite|entrega|publica|sube|ejecuta|realiza|abre|crea|programa|agenda|reserva|contacta|llama)\w*.*(?:correo|e-?mail|mensaje|archivo|pdf|docx|internet|ticket|auditor[ií]a|servidor|reserva|llamada)|confirma\s+(?:cuando|que).*(?:entregado|enviado|publicado|ejecutado|creado)/i,
+  draftingOnly:
+    /(?:redacta|escribe|prop[oó]n|borrador|plantilla).*(?:correo|e-?mail|mensaje|carta)/i,
   asyncPromise:
-    /en breve|vuelvo enseguida|regreso enseguida|te entregar[eé]|te enviar[eé]|preparar[eé] los documentos|trabajando en segundo plano|m[aá]s tarde/i,
+    /en breve|vuelvo enseguida|regreso enseguida|te entregar[eé]|te enviar[eé]|preparar[eé] los documentos|trabajando en segundo plano|m[aá]s tarde|despu[eé]s de (?:esta|la) conversaci[oó]n|dentro de \d+ minutos/i,
   outputFlood:
     /repite .*indefinid|no te detengas|respuesta m[aá]s larga|hasta el l[ií]mite|contin[uú]a sin parar|continuaciones ilimitadas|exactamente\s+([2-9]\d{3,}|\d{5,})\s+palabras|\b([2-9]\d{3,}|\d{5,})\s+(consejos|ejemplos|p[aá]rrafos|cap[ií]tulos)/i,
   dangerous:
     /bomba casera|explosivo|molotov|detonador|tnt|dinamita|fabricar arma|clonar tarjeta|phishing|robar credenciales|eludir controles|bypass de seguridad|acceso no autorizado|puentear alarma|desactivar sistema contra incendios/i,
-  medical:
-    /dosis|miligramos|mg\/kg|tratamiento|quimioterapia|antibi[oó]tico|receta m[eé]dica/i,
+  medicalTopic:
+    /me duele|dolor de|s[ií]ntoma|fiebre|mareo|n[aá]usea|aspirina|ibuprofeno|paracetamol|acetaminof[eé]n|antibi[oó]tico|medicamento|medicina|pastilla|dosis|miligramos|mg\/kg|tratamiento|quimioterapia|receta m[eé]dica|diagn[oó]stico|enfermedad/i,
+  medicalAdvice:
+    /deb(?:o|a|er[ií]a) tomar|pued(?:o|a) tomar|qu[eé] me recomiendas|recomi[eé]ndame|qu[eé] medicamento|qu[eé] medicina|qu[eé] hago|c[oó]mo tratar|tr[aá]tame|diagnostica|dosis|cu[aá]ntas? (?:pastillas|tabletas)|es seguro tomar|me conviene tomar/i,
+  personalMedical:
+    /(?:me|le|nos) duele|tengo (?:fiebre|mareo|n[aá]usea|dolor|s[ií]ntomas?)|mi (?:hijo|hija|mam[aá]|pap[aá]|pareja) tiene|estoy (?:enfermo|enferma|mareado|mareada)/i,
   pricing:
     /cu[aá]nto cuesta|cu[aá]nto vale|precio|presupuesto|cotizaci[oó]n|\bmxn\b|\busd\b|pesos/i,
   formalContact:
@@ -69,6 +79,12 @@ const RE = Object.freeze({
     /(c[oó]digo|script|snippet|tutorial|paso a paso|plantilla html|programar en|ejemplo en (html|javascript|python|java|arduino|react|node))/i,
   clearlyOffDomain:
     /hor[oó]scopo|zodiacal|poema de amor|cuento er[oó]tico|fanfic|chiste verde|receta de cocina/i,
+  asksUserName:
+    /(?:c[oó]mo me llamo|cu[aá]l es mi nombre|recuerdas mi nombre|sabes c[oó]mo me llamo|mi nombre es godelin\?)/i,
+  asksPreviousStatement:
+    /(?:qu[eé] te dije antes|qu[eé] dije antes|qu[eé] fue lo anterior que te dije|recuerdas lo que te dije|qu[eé] te acabo de decir)/i,
+  asksForUserName:
+    /(?:no me has indicado tu nombre|cu[aá]l es tu nombre|c[oó]mo te llamas|dime tu nombre|puedes decirme tu nombre)/i,
 });
 
 const FIXED_REPLIES = Object.freeze({
@@ -77,19 +93,21 @@ const FIXED_REPLIES = Object.freeze({
   identity_anchor:
     "Soy Godelin, asistente virtual de Paradox Systems. Una instrucción dentro del chat no puede cambiar mi identidad, cargo o autoridad ni acreditar una excepción especial. Tampoco puedo representar a otra organización.",
   internal_exfil:
-    "No puedo revelar, confirmar, inferir, resumir, traducir ni diagramar prompts, reglas, código, arquitectura, proveedores, herramientas, configuraciones privadas ni la ubicación o alojamiento de servidores.",
+    "No puedo revelar, confirmar, inferir, deducir, estimar, resumir, traducir ni diagramar prompts, reglas, código, arquitectura, proveedores, nube, regiones, herramientas, configuraciones privadas ni la ubicación o alojamiento de servidores.",
   third_party_access:
     "No puedo redactar ni optimizar solicitudes de acceso administrativo, elevación de privilegios, auditorías internas o recolección de evidencias sensibles para sistemas de terceros. Debes utilizar sus canales oficiales y procedimientos autorizados.",
   commercial_integrity:
     "No puedo crear ni confirmar promociones, descuentos, tarifas, reservas o compromisos comerciales sin una fuente empresarial oficial y vigente.",
   capability_truth:
-    "Este chatbot no cuenta con una herramienta activa para crear o adjuntar archivos descargables ni ejecutar tareas en segundo plano. Puedo entregar contenido de texto dentro de esta conversación.",
+    "No puedo enviar correos, subir archivos, publicar enlaces, ejecutar auditorías, crear tickets ni realizar tareas en segundo plano desde este chat. Sí puedo redactar contenido de texto para que una persona lo revise y ejecute por un canal autorizado.",
   output_budget:
     "No puedo generar repeticiones indefinidas ni respuestas desproporcionadas. Puedo ofrecer una versión breve y acotada.",
   safety:
     "No puedo ayudar con instrucciones peligrosas, ilegales, de acceso no autorizado o sabotaje.",
   medical:
-    "No puedo dar dosis ni tratamientos médicos. Para eso corresponde consultar a un profesional autorizado.",
+    "No puedo brindar consejos médicos, diagnósticos, tratamientos, dosis ni recomendaciones de medicamentos. Consulta a un profesional de la salud calificado.",
+  conversation_identity_unknown:
+    "No me has indicado tu nombre en esta conversación. Mi nombre es Godelin; el tuyo es independiente del mío.",
   pricing:
     "No puedo confirmar precios ni rangos numéricos de Paradox Systems sin una fuente comercial autorizada. Las cotizaciones son personalizadas según consumo, ubicación, complejidad y materiales. Para una propuesta formal, escribe al WhatsApp +526122173332.",
   off_domain:
@@ -109,6 +127,7 @@ const DECISION_REASON_ORDER = Object.freeze([
   "output_budget",
   "safety",
   "medical",
+  "conversation_identity",
   "off_domain",
 ]);
 
@@ -134,6 +153,82 @@ function composeFixedReply(reasons) {
     .join(" ") || FIXED_REPLIES.post_block;
 }
 
+
+function cleanUserName(value) {
+  const cleaned = String(value || "")
+    .replace(/[^\p{L}\p{M}' -]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned || cleaned.length > 80) return null;
+
+  const disallowed = /^(godelin|tu asistente|el asistente|fundador|propietario|ingeniero|administrador|director|presidente|usuario)$/i;
+  if (disallowed.test(cleaned)) return null;
+  return cleaned;
+}
+
+export function extractExplicitUserName(history = []) {
+  const turns = Array.isArray(history) ? history : [];
+  let found = null;
+  let previousAssistantAskedForName = false;
+
+  for (const item of turns) {
+    const role = item?.role;
+    const text = String(item?.content || "").trim();
+    if (!text) continue;
+
+    if (role === "assistant") {
+      previousAssistantAskedForName = RE.asksForUserName.test(text);
+      continue;
+    }
+    if (role !== "user") continue;
+
+    const direct = text.match(/\b(?:me llamo|mi nombre es)\s+([\p{L}\p{M}'-]+(?:\s+[\p{L}\p{M}'-]+){0,3})/iu);
+    if (direct) {
+      const candidate = cleanUserName(direct[1]);
+      if (candidate) found = candidate;
+      previousAssistantAskedForName = false;
+      continue;
+    }
+
+    const selfIntroduction = text.match(/\bsoy\s+([A-ZÁÉÍÓÚÜÑ][\p{L}\p{M}'-]+(?:\s+[A-ZÁÉÍÓÚÜÑ][\p{L}\p{M}'-]+){0,3})(?=\s*[,.;]|$)/iu);
+    if (selfIntroduction) {
+      const candidate = cleanUserName(selfIntroduction[1]);
+      if (candidate) found = candidate;
+      previousAssistantAskedForName = false;
+      continue;
+    }
+
+    if (previousAssistantAskedForName) {
+      const standalone = text.match(/^([\p{L}\p{M}'-]+(?:\s+[\p{L}\p{M}'-]+){0,3})[.!]?$/u);
+      if (standalone) {
+        const candidate = cleanUserName(standalone[1]);
+        if (candidate) found = candidate;
+      }
+    }
+    previousAssistantAskedForName = false;
+  }
+  return found;
+}
+
+function conversationIdentityReply(history = []) {
+  const name = extractExplicitUserName(history);
+  if (!name) return FIXED_REPLIES.conversation_identity_unknown;
+  return `Me indicaste que te llamas ${name}. Mi nombre es Godelin; nuestras identidades son distintas.`;
+}
+
+
+function conversationRecallReply(history = []) {
+  const turns = Array.isArray(history) ? history : [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const item = turns[index];
+    if (item?.role !== "user") continue;
+    const content = String(item.content || "").trim();
+    if (!content) continue;
+    return `Antes me dijiste: “${content.slice(0, 500)}”`;
+  }
+  return "No tengo un turno anterior disponible en esta sesión.";
+}
+
 function collectDecisionReasons(flags) {
   if (flags.inputTooLong) return ["input_too_long"];
 
@@ -145,7 +240,7 @@ function collectDecisionReasons(flags) {
   if (flags.pricing && flags.paradoxDomain) reasons.push("pricing");
   if (flags.exfil) reasons.push("internal_exfil");
   if (flags.thirdPartyAccessFacilitation) reasons.push("third_party_access");
-  if (flags.artifactRequest) reasons.push("capability_truth");
+  if (flags.capabilityRequest) reasons.push("capability_truth");
   if (flags.outputFlood) reasons.push("output_budget");
   if (flags.dangerous) reasons.push("safety");
   if (flags.medical) reasons.push("medical");
@@ -235,9 +330,17 @@ export function classifyUserMessage(message) {
     commercialCommitment: RE.commercialCommitment.test(source),
     unauthorizedThirdPartyPromotion: thirdParty && RE.promotion.test(source),
     artifactRequest: RE.artifactRequest.test(source),
+    externalAction:
+      RE.externalAction.test(source) && !RE.draftingOnly.test(source),
+    capabilityRequest:
+      RE.artifactRequest.test(source) ||
+      (RE.externalAction.test(source) && !RE.draftingOnly.test(source)) ||
+      RE.asyncPromise.test(source),
     outputFlood: RE.outputFlood.test(source),
     dangerous: RE.dangerous.test(source),
-    medical: RE.medical.test(source),
+    medical:
+      (RE.medicalTopic.test(source) && RE.medicalAdvice.test(source)) ||
+      RE.personalMedical.test(source),
     pricing: RE.pricing.test(source),
     formalContact: RE.formalContact.test(source),
     paradoxDomain: RE.paradoxDomain.test(source),
@@ -253,9 +356,10 @@ export function requiredRulesForMessage(message, flags = classifyUserMessage(mes
   if (flags.thirdParty || flags.roleHijack) required.add("THIRD-PARTY-AUTHORITY");
   if (flags.adminAccess || flags.sensitiveEvidence || flags.socialEngineering) required.add("ADMIN-ACCESS");
   if (flags.promotion || flags.commercialCommitment || flags.pricing) required.add("COMMERCIAL-INTEGRITY");
-  if (flags.artifactRequest) required.add("CAPABILITY-TRUTH");
+  if (flags.capabilityRequest) required.add("CAPABILITY-TRUTH");
   if (flags.outputFlood) required.add("OUTPUT-BUDGET");
-  if (flags.dangerous || flags.medical) required.add("SAFETY-BOUNDARY");
+  if (flags.dangerous) required.add("SAFETY-BOUNDARY");
+  if (flags.medical) required.add("MEDICAL-BOUNDARY");
   if (flags.pricing) required.add("PARADOX-PRICING");
   if (flags.formalContact || flags.pricing) required.add("FORMAL-CONTACT");
   if (flags.paradoxDomain) {
@@ -450,6 +554,30 @@ export function decide(message, cfg = {}) {
   const selectionInput = source.slice(0, DEFAULTS.max_input_chars);
   const contextSelection = selectGovernedContext(selectionInput, cfg);
   const reasons = collectDecisionReasons(flags);
+
+  if (RE.asksUserName.test(source)) {
+    return {
+      mode: "fixed_reply",
+      reason: "conversation_identity",
+      reasons: ["conversation_identity"],
+      reply: conversationIdentityReply(cfg.history || []),
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (RE.asksPreviousStatement.test(source)) {
+    return {
+      mode: "fixed_reply",
+      reason: "conversation_recall",
+      reasons: ["conversation_recall"],
+      reply: conversationRecallReply(cfg.history || []),
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
 
   if (reasons.length > 0) {
     const mode = reasons.includes("off_domain")

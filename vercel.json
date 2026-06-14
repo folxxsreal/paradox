@@ -1,6 +1,14 @@
 {
   "buildCommand": "echo 'Static site - no build needed'",
   "outputDirectory": "public",
+  "headers": [
+    {
+      "source": "/chat-widget.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
+  ],
   "functions": {
     "api/chat.js": {
       "maxDuration": 10
