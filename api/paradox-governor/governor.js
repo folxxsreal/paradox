@@ -81,6 +81,10 @@ const RE = Object.freeze({
     /hor[oó]scopo|zodiacal|poema de amor|cuento er[oó]tico|fanfic|chiste verde|receta de cocina/i,
   asksUserName:
     /(?:c[oó]mo me llamo|cu[aá]l es mi nombre|recuerdas mi nombre|sabes c[oó]mo me llamo|mi nombre es godelin\?)/i,
+  asksPreviousStatement:
+    /(?:qu[eé] te dije antes|qu[eé] dije antes|qu[eé] fue lo anterior que te dije|recuerdas lo que te dije|qu[eé] te acabo de decir)/i,
+  asksForUserName:
+    /(?:no me has indicado tu nombre|cu[aá]l es tu nombre|c[oó]mo te llamas|dime tu nombre|puedes decirme tu nombre)/i,
 });
 
 const FIXED_REPLIES = Object.freeze({
@@ -163,24 +167,45 @@ function cleanUserName(value) {
 }
 
 export function extractExplicitUserName(history = []) {
-  const userMessages = Array.isArray(history)
-    ? history.filter((item) => item?.role === "user").map((item) => String(item.content || ""))
-    : [];
-
+  const turns = Array.isArray(history) ? history : [];
   let found = null;
-  for (const text of userMessages) {
+  let previousAssistantAskedForName = false;
+
+  for (const item of turns) {
+    const role = item?.role;
+    const text = String(item?.content || "").trim();
+    if (!text) continue;
+
+    if (role === "assistant") {
+      previousAssistantAskedForName = RE.asksForUserName.test(text);
+      continue;
+    }
+    if (role !== "user") continue;
+
     const direct = text.match(/\b(?:me llamo|mi nombre es)\s+([\p{L}\p{M}'-]+(?:\s+[\p{L}\p{M}'-]+){0,3})/iu);
     if (direct) {
       const candidate = cleanUserName(direct[1]);
       if (candidate) found = candidate;
+      previousAssistantAskedForName = false;
       continue;
     }
 
-    const selfIntroduction = text.match(/\bsoy\s+([A-ZÁÉÍÓÚÜÑ][\p{L}\p{M}'-]+(?:\s+[A-ZÁÉÍÓÚÜÑ][\p{L}\p{M}'-]+){1,3})(?=\s*[,.;]|$)/iu);
+    const selfIntroduction = text.match(/\bsoy\s+([A-ZÁÉÍÓÚÜÑ][\p{L}\p{M}'-]+(?:\s+[A-ZÁÉÍÓÚÜÑ][\p{L}\p{M}'-]+){0,3})(?=\s*[,.;]|$)/iu);
     if (selfIntroduction) {
       const candidate = cleanUserName(selfIntroduction[1]);
       if (candidate) found = candidate;
+      previousAssistantAskedForName = false;
+      continue;
     }
+
+    if (previousAssistantAskedForName) {
+      const standalone = text.match(/^([\p{L}\p{M}'-]+(?:\s+[\p{L}\p{M}'-]+){0,3})[.!]?$/u);
+      if (standalone) {
+        const candidate = cleanUserName(standalone[1]);
+        if (candidate) found = candidate;
+      }
+    }
+    previousAssistantAskedForName = false;
   }
   return found;
 }
@@ -189,6 +214,19 @@ function conversationIdentityReply(history = []) {
   const name = extractExplicitUserName(history);
   if (!name) return FIXED_REPLIES.conversation_identity_unknown;
   return `Me indicaste que te llamas ${name}. Mi nombre es Godelin; nuestras identidades son distintas.`;
+}
+
+
+function conversationRecallReply(history = []) {
+  const turns = Array.isArray(history) ? history : [];
+  for (let index = turns.length - 1; index >= 0; index -= 1) {
+    const item = turns[index];
+    if (item?.role !== "user") continue;
+    const content = String(item.content || "").trim();
+    if (!content) continue;
+    return `Antes me dijiste: “${content.slice(0, 500)}”`;
+  }
+  return "No tengo un turno anterior disponible en esta sesión.";
 }
 
 function collectDecisionReasons(flags) {
@@ -523,6 +561,18 @@ export function decide(message, cfg = {}) {
       reason: "conversation_identity",
       reasons: ["conversation_identity"],
       reply: conversationIdentityReply(cfg.history || []),
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (RE.asksPreviousStatement.test(source)) {
+    return {
+      mode: "fixed_reply",
+      reason: "conversation_recall",
+      reasons: ["conversation_recall"],
+      reply: conversationRecallReply(cfg.history || []),
       flags,
       contextSelection,
       maxOutputTokens: DEFAULTS.constrained_max_output_tokens,

@@ -1,4 +1,4 @@
-// api/chat.js — Groq + Paradox Governor (PRS-VPP v1.2)
+// api/chat.js — Groq + Paradox Governor (PRS-VPP v1.2.1)
 
 import {
   auditOutput,
@@ -200,6 +200,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
+    res.setHeader("X-Paradox-Governor-Version", "1.2.1");
     const rate = consumeRateLimit(req);
     res.setHeader("X-RateLimit-Remaining", String(rate.remaining));
     if (!rate.ok) {
@@ -208,7 +209,7 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: "Too many requests" });
     }
 
-    const { message, recaptchaToken, history } = req.body || {};
+    const { message, recaptchaToken, history, clientVersion } = req.body || {};
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "Message is required" });
     }
@@ -250,7 +251,8 @@ export default async function handler(req, res) {
         responseBody(decision.reply, {
           product: "Paradox Governor",
           engine: "PRS-VPP",
-          version: "1.2",
+          version: "1.2.1",
+          clientVersion: String(clientVersion || "unknown"),
           stage: "pre",
           mode: decision.mode,
           reason: decision.reason,
@@ -318,7 +320,8 @@ export default async function handler(req, res) {
       responseBody(audited.output, {
         product: "Paradox Governor",
         engine: "PRS-VPP",
-        version: "1.2",
+        version: "1.2.1",
+        clientVersion: String(clientVersion || "unknown"),
         stage: "post",
         mode: audited.allowed ? "allow" : "replace",
         reason: audited.reason,

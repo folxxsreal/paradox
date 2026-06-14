@@ -10,7 +10,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    const HISTORY_KEY = 'godelin_session_history_v12';
+    const WIDGET_VERSION = '1.2.1';
+    window.__GODELIN_WIDGET_VERSION__ = WIDGET_VERSION;
+    console.info(`[Godelin] widget ${WIDGET_VERSION}`);
+    const HISTORY_KEY = 'godelin_session_history_v121';
     const MAX_LOCAL_TURNS = 24;
     const MAX_SENT_TURNS = 12;
     let isOpen = false;
@@ -94,7 +97,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({
                     message,
-                    history: priorHistory
+                    history: priorHistory,
+                    clientVersion: WIDGET_VERSION
                 })
             });
 
