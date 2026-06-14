@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    const WIDGET_VERSION = '1.2.1';
+    const WIDGET_VERSION = '1.2.2';
     window.__GODELIN_WIDGET_VERSION__ = WIDGET_VERSION;
     console.info(`[Godelin] widget ${WIDGET_VERSION}`);
     const HISTORY_KEY = 'godelin_session_history_v121';

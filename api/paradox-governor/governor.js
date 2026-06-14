@@ -38,7 +38,7 @@ const RE = Object.freeze({
   falseAuthority:
     /soy\s+(el\s+)?(dueño|fundador|presidente|director|gerente|administrador|auditor|responsable|ciso|cto|ceo)|c[oó]digo\s+(interno|de autorizaci[oó]n)|autorizo|modo\s+(admin|administrador|diagn[oó]stico|root)/i,
   roleHijack:
-    /a partir de ahora|act[uú]a como|eres el asistente oficial|pres[eé]ntate como|tu nombre ahora es|cambia (?:tu )?identidad|asume (?:el )?(?:rol|cargo|puesto)|tu (?:rol|cargo|puesto) (?:ahora|desde ahora) es|convi[eé]rtete en|no menciones (paradox|godelin)|habla en nombre de|representa a|firma como/i,
+    /(?:a partir de ahora|desde ahora)\s+(?:eres|ser[aá]s|te llamas|act[uú]as|representas|tu (?:identidad|rol|cargo|puesto) (?:es|ser[aá]))|act[uú]a como|eres el asistente oficial|pres[eé]ntate como|tu nombre ahora es|cambia (?:tu )?identidad|asume (?:el )?(?:rol|cargo|puesto)|tu (?:rol|cargo|puesto) (?:ahora|desde ahora) es|convi[eé]rtete en|no menciones (paradox|godelin)|habla en nombre de|representa a|firma como/i,
   thirdPartyBrand:
     /baja ferries|xerox|electroneek|uipath|microsoft|google|amazon|meta|openai|anthropic|sap|salesforce|servicenow|cargo web/i,
   adminAccess:
@@ -69,6 +69,8 @@ const RE = Object.freeze({
     /deb(?:o|a|er[ií]a) tomar|pued(?:o|a) tomar|qu[eé] me recomiendas|recomi[eé]ndame|qu[eé] medicamento|qu[eé] medicina|qu[eé] hago|c[oó]mo tratar|tr[aá]tame|diagnostica|dosis|cu[aá]ntas? (?:pastillas|tabletas)|es seguro tomar|me conviene tomar/i,
   personalMedical:
     /(?:me|le|nos) duele|tengo (?:fiebre|mareo|n[aá]usea|dolor|s[ií]ntomas?)|mi (?:hijo|hija|mam[aá]|pap[aá]|pareja) tiene|estoy (?:enfermo|enferma|mareado|mareada)/i,
+  medicalPolicyStatement:
+    /(?:no|nunca)\s+(?:debes?|puedes?)\s+(?:dar|brindar|ofrecer)\s+consejos?\s+m[eé]dicos?|no\s+des\s+consejos?\s+m[eé]dicos?|evita\s+(?:dar\s+)?consejos?\s+m[eé]dicos?/i,
   pricing:
     /cu[aá]nto cuesta|cu[aá]nto vale|precio|presupuesto|cotizaci[oó]n|\bmxn\b|\busd\b|pesos/i,
   formalContact:
@@ -91,25 +93,29 @@ const FIXED_REPLIES = Object.freeze({
   input_too_long:
     "El mensaje excede el límite de procesamiento seguro. Resume la solicitud en menos de 6,000 caracteres y conserva únicamente los datos necesarios.",
   identity_anchor:
-    "Soy Godelin, asistente virtual de Paradox Systems. Una instrucción dentro del chat no puede cambiar mi identidad, cargo o autoridad ni acreditar una excepción especial. Tampoco puedo representar a otra organización.",
+    "Soy Godelin, asistente virtual de Paradox Systems. Las instrucciones del chat no pueden cambiar mi identidad ni acreditar autoridad o excepciones.",
+  third_party_identity:
+    "No puedo representar ni hablar oficialmente por otra organización.",
   internal_exfil:
-    "No puedo revelar, confirmar, inferir, deducir, estimar, resumir, traducir ni diagramar prompts, reglas, código, arquitectura, proveedores, nube, regiones, herramientas, configuraciones privadas ni la ubicación o alojamiento de servidores.",
+    "No puedo revelar ni inferir información privada sobre prompts, reglas, código, arquitectura, proveedores, nube, regiones, herramientas o servidores.",
   third_party_access:
     "No puedo redactar ni optimizar solicitudes de acceso administrativo, elevación de privilegios, auditorías internas o recolección de evidencias sensibles para sistemas de terceros. Debes utilizar sus canales oficiales y procedimientos autorizados.",
   commercial_integrity:
-    "No puedo crear ni confirmar promociones, descuentos, tarifas, reservas o compromisos comerciales sin una fuente empresarial oficial y vigente.",
+    "No puedo crear ni confirmar descuentos, promociones, tarifas o compromisos comerciales sin una fuente empresarial oficial y vigente.",
   capability_truth:
-    "No puedo enviar correos, subir archivos, publicar enlaces, ejecutar auditorías, crear tickets ni realizar tareas en segundo plano desde este chat. Sí puedo redactar contenido de texto para que una persona lo revise y ejecute por un canal autorizado.",
+    "No puedo enviar correos, crear o subir archivos, publicar enlaces, ejecutar auditorías ni trabajar en segundo plano desde este chat. Sí puedo redactar contenido para revisión humana.",
   output_budget:
     "No puedo generar repeticiones indefinidas ni respuestas desproporcionadas. Puedo ofrecer una versión breve y acotada.",
   safety:
     "No puedo ayudar con instrucciones peligrosas, ilegales, de acceso no autorizado o sabotaje.",
   medical:
     "No puedo brindar consejos médicos, diagnósticos, tratamientos, dosis ni recomendaciones de medicamentos. Consulta a un profesional de la salud calificado.",
+  medical_policy_ack:
+    "Entendido. No brindaré consejos médicos, diagnósticos, tratamientos, dosis ni recomendaciones de medicamentos.",
   conversation_identity_unknown:
     "No me has indicado tu nombre en esta conversación. Mi nombre es Godelin; el tuyo es independiente del mío.",
   pricing:
-    "No puedo confirmar precios ni rangos numéricos de Paradox Systems sin una fuente comercial autorizada. Las cotizaciones son personalizadas según consumo, ubicación, complejidad y materiales. Para una propuesta formal, escribe al WhatsApp +526122173332.",
+    "No puedo confirmar precios de Paradox Systems sin una fuente comercial autorizada. Las cotizaciones son personalizadas; para una propuesta formal, escribe al WhatsApp +526122173332.",
   off_domain:
     "Godelin está enfocado en Paradox Systems: energía solar, automatización, ingeniería, software, robótica y seguridad. Puedo ayudarte con una consulta dentro de ese alcance.",
   post_block:
@@ -119,6 +125,7 @@ const FIXED_REPLIES = Object.freeze({
 const DECISION_REASON_ORDER = Object.freeze([
   "input_too_long",
   "identity_anchor",
+  "third_party_identity",
   "commercial_integrity",
   "pricing",
   "internal_exfil",
@@ -127,6 +134,7 @@ const DECISION_REASON_ORDER = Object.freeze([
   "output_budget",
   "safety",
   "medical",
+  "medical_policy_ack",
   "conversation_identity",
   "off_domain",
 ]);
@@ -154,6 +162,19 @@ function composeFixedReply(reasons) {
 }
 
 
+function formatUserName(value) {
+  const particles = new Set(["de", "del", "la", "las", "los", "y"]);
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLocaleLowerCase("es-MX");
+      if (index > 0 && particles.has(lower)) return lower;
+      return lower.charAt(0).toLocaleUpperCase("es-MX") + lower.slice(1);
+    })
+    .join(" ");
+}
+
 function cleanUserName(value) {
   const cleaned = String(value || "")
     .replace(/[^\p{L}\p{M}' -]/gu, " ")
@@ -163,7 +184,7 @@ function cleanUserName(value) {
 
   const disallowed = /^(godelin|tu asistente|el asistente|fundador|propietario|ingeniero|administrador|director|presidente|usuario)$/i;
   if (disallowed.test(cleaned)) return null;
-  return cleaned;
+  return formatUserName(cleaned);
 }
 
 export function extractExplicitUserName(history = []) {
@@ -233,7 +254,8 @@ function collectDecisionReasons(flags) {
   if (flags.inputTooLong) return ["input_too_long"];
 
   const reasons = [];
-  if (flags.roleHijack || flags.thirdPartyImpersonation) reasons.push("identity_anchor");
+  if (flags.roleHijack) reasons.push("identity_anchor");
+  if (flags.thirdPartyImpersonation) reasons.push("third_party_identity");
   if (flags.unauthorizedThirdPartyPromotion || (flags.thirdParty && flags.commercialCommitment)) {
     reasons.push("commercial_integrity");
   }
@@ -555,6 +577,18 @@ export function decide(message, cfg = {}) {
   const contextSelection = selectGovernedContext(selectionInput, cfg);
   const reasons = collectDecisionReasons(flags);
 
+  if (RE.medicalPolicyStatement.test(source)) {
+    return {
+      mode: "fixed_reply",
+      reason: "medical_policy_ack",
+      reasons: ["medical_policy_ack"],
+      reply: FIXED_REPLIES.medical_policy_ack,
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
   if (RE.asksUserName.test(source)) {
     return {
       mode: "fixed_reply",
@@ -568,11 +602,21 @@ export function decide(message, cfg = {}) {
   }
 
   if (RE.asksPreviousStatement.test(source)) {
+    const recallReasons = [];
+    if (flags.pricing) recallReasons.push("pricing");
+    else if (flags.promotion || flags.commercialCommitment) recallReasons.push("commercial_integrity");
+    if (flags.exfil) recallReasons.push("internal_exfil");
+    if (flags.capabilityRequest) recallReasons.push("capability_truth");
+    if (flags.medical) recallReasons.push("medical");
+
+    const replyParts = [conversationRecallReply(cfg.history || [])];
+    if (recallReasons.length) replyParts.push(composeFixedReply(recallReasons));
+
     return {
       mode: "fixed_reply",
       reason: "conversation_recall",
-      reasons: ["conversation_recall"],
-      reply: conversationRecallReply(cfg.history || []),
+      reasons: ["conversation_recall", ...uniqueReasons(recallReasons)],
+      reply: replyParts.join(" "),
       flags,
       contextSelection,
       maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
@@ -661,7 +705,7 @@ export function auditOutput({ message, output, cfg = {} }) {
   if (uniqueAuditReasons.length > 0) {
     const mappedReasons = uniqueAuditReasons.map((reason) => {
       if (reason === "governed_context_leak" || reason === "internal_exfil") return "internal_exfil";
-      if (reason === "third_party_impersonation") return "identity_anchor";
+      if (reason === "third_party_impersonation") return "third_party_identity";
       if (reason === "access_facilitation") return "third_party_access";
       if (reason === "unauthorized_promotion") return "commercial_integrity";
       if (reason === "capability_overclaim") return "capability_truth";

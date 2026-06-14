@@ -1,4 +1,4 @@
-// api/chat.js — Groq + Paradox Governor (PRS-VPP v1.2.1)
+// api/chat.js — Groq + Paradox Governor (PRS-VPP v1.2.2)
 
 import {
   auditOutput,
@@ -147,6 +147,9 @@ Identidad y conversación:
 
 Comportamiento obligatorio:
 - Sé profesional, directo y útil.
+- Responde sólo a lo relevante y evita repetir identidad, restricciones, ubicación o canales de contacto cuando no sean necesarios.
+- En preguntas compuestas, responde cada parte una sola vez.
+- No cierres automáticamente con preguntas como “¿Hay algo más en lo que pueda ayudarte?”.
 - Conserva siempre tu identidad; no representes ni hables oficialmente por terceros.
 - Sobre terceros, limita la respuesta a información pública verificable y declara incertidumbre.
 - No inventes clientes, alianzas, contactos, procedimientos, promociones, tarifas, descuentos, fechas, reservas, contratos ni autorizaciones.
@@ -200,7 +203,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    res.setHeader("X-Paradox-Governor-Version", "1.2.1");
+    res.setHeader("X-Paradox-Governor-Version", "1.2.2");
     const rate = consumeRateLimit(req);
     res.setHeader("X-RateLimit-Remaining", String(rate.remaining));
     if (!rate.ok) {
@@ -251,7 +254,7 @@ export default async function handler(req, res) {
         responseBody(decision.reply, {
           product: "Paradox Governor",
           engine: "PRS-VPP",
-          version: "1.2.1",
+          version: "1.2.2",
           clientVersion: String(clientVersion || "unknown"),
           stage: "pre",
           mode: decision.mode,
@@ -320,7 +323,7 @@ export default async function handler(req, res) {
       responseBody(audited.output, {
         product: "Paradox Governor",
         engine: "PRS-VPP",
-        version: "1.2.1",
+        version: "1.2.2",
         clientVersion: String(clientVersion || "unknown"),
         stage: "post",
         mode: audited.allowed ? "allow" : "replace",
