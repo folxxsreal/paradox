@@ -187,7 +187,7 @@ export const BASE_POLICY_RECORDS = Object.freeze([
   },
   {
     rule_id: "COMPANY-SERVICES",
-    version: 2,
+    version: 3,
     source: "policy_repo",
     updated_at: UPDATED_AT,
     category: "services",
@@ -200,7 +200,7 @@ export const BASE_POLICY_RECORDS = Object.freeze([
   },
   {
     rule_id: "COMPANY-CLAIMS",
-    version: 2,
+    version: 3,
     source: "policy_repo",
     updated_at: UPDATED_AT,
     category: "claims",

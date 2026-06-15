@@ -81,6 +81,10 @@ const RE = Object.freeze({
     /(c[oó]digo|script|snippet|tutorial|paso a paso|plantilla html|programar en|ejemplo en (html|javascript|python|java|arduino|react|node))/i,
   clearlyOffDomain:
     /hor[oó]scopo|zodiacal|poema de amor|cuento er[oó]tico|fanfic|chiste verde|receta de cocina/i,
+  companyServicesAsk:
+    /(?:qu[eé]|cu[aá]les?)\s+(?:son\s+)?(?:los\s+)?servicios\s+(?:que\s+)?(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)(?:\s+paradox systems)?|(?:servicios|soluciones|portafolio|cat[aá]logo)\s+de\s+paradox systems|(?:qu[eé]\s+soluciones|qu[eé]\s+servicios)\s+(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)/i,
+  companyProfileAsk:
+    /(?:dame|proporciona|quiero)\s+informaci[oó]n\s+(?:sobre|de)\s+(?:la\s+empresa\s+)?paradox systems|(?:qu[eé]\s+es|h[aá]blame\s+de|a\s+qu[eé]\s+se\s+dedica|qu[eé]\s+hace)\s+paradox systems|informaci[oó]n\s+de\s+la\s+empresa/i,
   asksUserName:
     /(?:c[oó]mo me llamo|cu[aá]l es mi nombre|recuerdas mi nombre|sabes c[oó]mo me llamo|mi nombre es godelin\?)/i,
   asksPreviousStatement:
@@ -112,6 +116,10 @@ const FIXED_REPLIES = Object.freeze({
     "No puedo brindar consejos médicos, diagnósticos, tratamientos, dosis ni recomendaciones de medicamentos. Consulta a un profesional de la salud calificado.",
   medical_policy_ack:
     "Entendido. No brindaré consejos médicos, diagnósticos, tratamientos, dosis ni recomendaciones de medicamentos.",
+  company_services:
+    "Paradox Systems ofrece energía solar; automatización residencial e industrial; software a medida; robótica aplicada; videovigilancia; control de accesos; cableado estructurado; sistemas contra incendios; diseño de máquinas e ingeniería marítima.",
+  company_profile:
+    "Paradox Systems es una empresa de investigación, desarrollo e integración tecnológica con sede en La Paz, Baja California Sur, México. Ofrece energía solar; automatización residencial e industrial; software a medida; robótica aplicada; videovigilancia; control de accesos; cableado estructurado; sistemas contra incendios; diseño de máquinas e ingeniería marítima.",
   conversation_identity_unknown:
     "No me has indicado tu nombre en esta conversación. Mi nombre es Godelin; el tuyo es independiente del mío.",
   pricing:
@@ -135,6 +143,8 @@ const DECISION_REASON_ORDER = Object.freeze([
   "safety",
   "medical",
   "medical_policy_ack",
+  "company_profile",
+  "company_services",
   "conversation_identity",
   "off_domain",
 ]);
@@ -368,6 +378,8 @@ export function classifyUserMessage(message) {
     paradoxDomain: RE.paradoxDomain.test(source),
     genericTutorial: RE.genericTutorial.test(source),
     clearlyOffDomain: RE.clearlyOffDomain.test(source),
+    companyServicesAsk: RE.companyServicesAsk.test(source),
+    companyProfileAsk: RE.companyProfileAsk.test(source),
     normalized: normalizeText(source),
   };
 }
@@ -384,8 +396,13 @@ export function requiredRulesForMessage(message, flags = classifyUserMessage(mes
   if (flags.medical) required.add("MEDICAL-BOUNDARY");
   if (flags.pricing) required.add("PARADOX-PRICING");
   if (flags.formalContact || flags.pricing) required.add("FORMAL-CONTACT");
-  if (flags.paradoxDomain) {
+  if (flags.paradoxDomain || flags.companyServicesAsk || flags.companyProfileAsk) {
     required.add("SCOPE-PUBLIC");
+  }
+  if (flags.companyServicesAsk) required.add("COMPANY-SERVICES");
+  if (flags.companyProfileAsk) {
+    required.add("COMPANY-CLAIMS");
+    required.add("COMPANY-SERVICES");
   }
 
   return [...required];
@@ -427,7 +444,11 @@ function enrichRecords(query, requiredRules, horizon) {
     const utility = clamp(record.utility ?? 0.5);
     const risk = clamp(record.risk ?? 0.2);
     const confidence = clamp(record.confidence ?? 0.7);
-    const criticality = required.has(record.rule_id) && record.critical ? 1.18 : 0.82;
+    const criticality = required.has(record.rule_id)
+      ? record.critical
+        ? 1.18
+        : 1.1
+      : 0.82;
 
     let coherence = 0.72;
     if (record.is_superseded) coherence *= 0.12;
@@ -492,7 +513,7 @@ function coveragePack(records, requiredRules, budget, minScore) {
 
   for (const ruleId of requiredRules) {
     const candidate = records
-      .filter((record) => record.rule_id === ruleId && record.critical)
+      .filter((record) => record.rule_id === ruleId)
       .sort((a, b) => b.W_prs - a.W_prs)[0];
 
     if (!candidate || candidate.W_prs < minScore) continue;
@@ -617,6 +638,32 @@ export function decide(message, cfg = {}) {
       reason: "conversation_recall",
       reasons: ["conversation_recall", ...uniqueReasons(recallReasons)],
       reply: replyParts.join(" "),
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  // Public company facts are grounded deterministically so essential product
+  // information is never displaced by security context or an upstream outage.
+  if (reasons.length === 0 && flags.companyProfileAsk) {
+    return {
+      mode: "fixed_reply",
+      reason: "company_profile",
+      reasons: ["company_profile"],
+      reply: FIXED_REPLIES.company_profile,
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (reasons.length === 0 && flags.companyServicesAsk) {
+    return {
+      mode: "fixed_reply",
+      reason: "company_services",
+      reasons: ["company_services"],
+      reply: FIXED_REPLIES.company_services,
       flags,
       contextSelection,
       maxOutputTokens: DEFAULTS.constrained_max_output_tokens,

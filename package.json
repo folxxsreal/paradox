@@ -1,11 +1,11 @@
 {
   "name": "paradox-systems",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Paradox Systems Website",
   "type": "module",
   "scripts": {
     "build": "echo 'Build complete'",
-    "test:governor": "node tests/paradox-governor-v1.2.2.test.mjs"
+    "test:governor": "node tests/paradox-governor-v1.2.3.test.mjs"
   },
   "dependencies": {
     "nodemailer": "^6.9.8"

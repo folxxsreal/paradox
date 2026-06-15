@@ -1,4 +1,4 @@
-// api/chat.js — Groq + Paradox Governor (PRS-VPP v1.2.2)
+// api/chat.js — Groq + Paradox Governor (PRS-VPP v1.2.3)
 
 import {
   auditOutput,
@@ -203,7 +203,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    res.setHeader("X-Paradox-Governor-Version", "1.2.2");
+    res.setHeader("X-Paradox-Governor-Version", "1.2.3");
     const rate = consumeRateLimit(req);
     res.setHeader("X-RateLimit-Remaining", String(rate.remaining));
     if (!rate.ok) {
@@ -254,7 +254,7 @@ export default async function handler(req, res) {
         responseBody(decision.reply, {
           product: "Paradox Governor",
           engine: "PRS-VPP",
-          version: "1.2.2",
+          version: "1.2.3",
           clientVersion: String(clientVersion || "unknown"),
           stage: "pre",
           mode: decision.mode,
@@ -323,7 +323,7 @@ export default async function handler(req, res) {
       responseBody(audited.output, {
         product: "Paradox Governor",
         engine: "PRS-VPP",
-        version: "1.2.2",
+        version: "1.2.3",
         clientVersion: String(clientVersion || "unknown"),
         stage: "post",
         mode: audited.allowed ? "allow" : "replace",
