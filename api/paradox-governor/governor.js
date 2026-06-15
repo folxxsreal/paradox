@@ -1,4 +1,4 @@
-// Paradox Governor — PRS-VPP runtime governance for Godelin.
+// Paradox Governor — PRS-VPP runtime governance for Godelin (v1.2.5).
 // Product: Paradox Governor. Engine: PRS-VPP.
 // Pipeline: classification -> mandatory PRS-VPP context selection ->
 // deterministic multi-rule composition or LLM -> deterministic multi-rule post-audit.
@@ -90,7 +90,9 @@ const RE = Object.freeze({
   clearlyOffDomain:
     /hor[oó]scopo|zodiacal|poema de amor|cuento er[oó]tico|fanfic|chiste verde|receta de cocina/i,
   companyServicesAsk:
-    /(?:qu[eé]|cu[aá]les?)\s+(?:son\s+)?(?:los\s+)?servicios\s+(?:que\s+)?(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)(?:\s+paradox systems)?|(?:servicios|soluciones|portafolio|cat[aá]logo)\s+de\s+paradox systems|(?:qu[eé]\s+soluciones|qu[eé]\s+servicios)\s+(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)/i,
+    /(?:qu[eé]|cu[aá]les?)\s+(?:son\s+)?(?:los\s+)?(?:otros\s+)?servicios\s+(?:que\s+)?(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)(?:\s+paradox systems)?|(?:qu[eé]\s+)?otros\s+servicios\s+(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)|(?:servicios|soluciones|portafolio|cat[aá]logo)\s+de\s+paradox systems|(?:qu[eé]\s+soluciones|qu[eé]\s+servicios)\s+(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)/i,
+  serviceDetailIntent:
+    /h[aá]blame|cu[eé]ntame|dime|expl[ií]ca(?:me)?|informaci[oó]n|detalles?|qu[eé]\s+(?:hacen|ofrecen|incluye|abarca)|en\s+qu[eé]\s+consiste|saber\s+m[aá]s|conocer\s+m[aá]s|m[aá]s\s+de|servicios?\s+de/i,
   companyProfileAsk:
     /(?:dame|proporciona|quiero)\s+informaci[oó]n\s+(?:sobre|de)\s+(?:la\s+empresa\s+)?paradox systems|(?:qu[eé]\s+es|h[aá]blame\s+de|a\s+qu[eé]\s+se\s+dedica|qu[eé]\s+hace)\s+paradox systems|informaci[oó]n\s+de\s+la\s+empresa/i,
   asksUserNameAndCode:
@@ -102,6 +104,38 @@ const RE = Object.freeze({
   asksForUserName:
     /(?:no me has indicado tu nombre|cu[aá]l es tu nombre|c[oó]mo te llamas|dime tu nombre|puedes decirme tu nombre)/i,
 });
+
+const SERVICE_PATTERNS = Object.freeze({
+  smart_homes: /casas? inteligentes?|hogar(?:es)? inteligentes?|dom[oó]tica/i,
+  solar: /plantas? solares?|energ[ií]a solar|panel(?:es)? solares?|fotovoltaic/i,
+  rnd: /investigaci[oó]n y desarrollo|\bi\s*\+\s*d\b|rob[oó]tica|agentes? aut[oó]nomos?|sistemas? complejos?|ciencia de redes|teor[ií]a de control|inteligencia artificial aplicada|ia aplicada|optimizaci[oó]n|m[eé]todos? variacionales?|modelado|simulaci[oó]n|digital twins?|sistemas? ciberf[ií]sicos?|cps|instrumentaci[oó]n/i,
+  automation: /automatizaci[oó]n de procesos|automatizaci[oó]n industrial|\bplc(?:s)?\b|\bpac(?:s)?\b|\bhmi\b|\bscada\b|sistemas? de control/i,
+  machine_design: /dise[nñ]o de m[aá]quinas?|maquinaria personalizada|dise[nñ]o mecatr[oó]nico|prototipado/i,
+  cabling: /cableado estructurado|infraestructura de red|voz,? datos|\bpoe\b/i,
+  software: /desarrollo de software|software a medida|aplicaciones? web|aplicaciones? m[oó]viles?|aplicaciones? de escritorio|modernizaci[oó]n de aplicaciones/i,
+  fire: /sistemas? contra incendios?|detecci[oó]n de humo|supresi[oó]n de fuego|rociadores?|\bnfpa\b/i,
+  security: /videovigilancia|control de accesos?|c[aá]maras? de seguridad/i,
+});
+
+const SERVICE_RULE_IDS = Object.freeze({
+  smart_homes: "SERVICE-SMART-HOMES",
+  solar: "SERVICE-SOLAR",
+  rnd: "SERVICE-RND",
+  automation: "SERVICE-AUTOMATION",
+  machine_design: "SERVICE-MACHINE-DESIGN",
+  cabling: "SERVICE-CABLING",
+  software: "SERVICE-SOFTWARE",
+  fire: "SERVICE-FIRE",
+  security: "SERVICE-SECURITY",
+});
+
+function detectServiceKey(message) {
+  const source = String(message || "");
+  for (const [key, pattern] of Object.entries(SERVICE_PATTERNS)) {
+    if (pattern.test(source)) return key;
+  }
+  return null;
+}
 
 const FIXED_REPLIES = Object.freeze({
   input_too_long:
@@ -129,13 +163,29 @@ const FIXED_REPLIES = Object.freeze({
   medical_policy_ack:
     "Entendido. No brindaré consejos médicos, diagnósticos, tratamientos, dosis ni recomendaciones de medicamentos.",
   company_services:
-    "Paradox Systems ofrece energía solar; automatización residencial e industrial; software a medida; robótica aplicada; videovigilancia; control de accesos; cableado estructurado; sistemas contra incendios; diseño de máquinas e ingeniería marítima.",
+    "Paradox Systems ofrece casas inteligentes; plantas solares; investigación y desarrollo; automatización de procesos; diseño de máquinas; cableado estructurado; desarrollo de software; sistemas contra incendios; y videovigilancia y control de accesos.",
   company_profile:
-    "Paradox Systems es una empresa de investigación, desarrollo e integración tecnológica con sede en La Paz, Baja California Sur, México. Ofrece energía solar; automatización residencial e industrial; software a medida; robótica aplicada; videovigilancia; control de accesos; cableado estructurado; sistemas contra incendios; diseño de máquinas e ingeniería marítima.",
+    "Paradox Systems es una empresa de soluciones de ingeniería y desarrollo tecnológico con sede en La Paz, Baja California Sur, México. Su portafolio incluye casas inteligentes, plantas solares, investigación y desarrollo, automatización de procesos, diseño de máquinas, cableado estructurado, desarrollo de software, sistemas contra incendios, y videovigilancia y control de accesos.",
+  service_smart_homes:
+    "En casas inteligentes, Paradox Systems integra control y monitoreo del hogar, cámaras, cerraduras inteligentes, iluminación regulable, escenas, sensores de movimiento y apertura, y un sistema central de control. El alcance se adapta a las necesidades de cada vivienda.",
   solar_services:
-    "Paradox Systems ofrece soluciones de energía solar como parte de su portafolio tecnológico. Para definir el alcance de un proyecto se revisan el consumo eléctrico, la ubicación, el tipo de inmueble y las necesidades de respaldo. Godelin puede ayudarte a ordenar esa información, pero no emite cotizaciones ni confirma precios. Para una propuesta formal, escribe al WhatsApp +526122173332.",
+    "Paradox Systems diseña e implementa sistemas de energía solar adaptados a las necesidades de cada cliente. Los sistemas pueden ser residenciales, comerciales o industriales; son modulares y pueden incorporar seguimiento solar para mejorar el aprovechamiento de la radiación. Los paneles tienen una vida útil prolongada y requieren mantenimiento mínimo.",
+  service_rnd:
+    "En investigación y desarrollo, Paradox Systems trabaja en robótica y sistemas autónomos, sistemas complejos y ciencia de redes, teoría de control y estimación, inteligencia artificial aplicada, optimización y métodos variacionales, modelado y simulación, instrumentación y sistemas ciberfísicos, energía y sistemas eléctricos de potencia, y procesos físico-químicos y ambientales.",
+  service_automation:
+    "En automatización de procesos, Paradox Systems programa PLC y PAC, implementa sistemas de control, integra interfaces HMI e instala sistemas SCADA para adquisición de datos y supervisión industrial.",
+  service_machine_design:
+    "En diseño de máquinas, Paradox Systems diseña y construye maquinaria personalizada mediante ingeniería mecatrónica, herramientas CAD, simulación y prototipado, desde la conceptualización hasta la puesta en marcha.",
+  service_cabling:
+    "En cableado estructurado, Paradox Systems implementa infraestructura organizada y escalable para voz, datos, video, texto y energía PoE, preparada para ampliaciones y administración eficiente.",
+  service_software:
+    "En desarrollo de software, Paradox Systems crea aplicaciones web, móviles, de escritorio e híbridas, con integración de inteligencia artificial cuando el proyecto lo requiere. También ofrece implementación, mantenimiento y modernización de aplicaciones.",
+  service_fire:
+    "En sistemas contra incendios, Paradox Systems diseña, suministra e instala detección inteligente de humo y alarmas, supresión con gases para instalaciones críticas y sistemas de rociadores tipo diluvio, de acuerdo con las necesidades del proyecto y normas NFPA.",
+  service_security:
+    "En videovigilancia y control de accesos, Paradox Systems implementa soluciones para supervisar instalaciones y gestionar o restringir el ingreso de manera segura y eficiente.",
   quote_intake:
-    "Para una cotización formal de Paradox Systems, escribe al WhatsApp +526122173332. Ten a la mano tu consumo mensual en kWh o recibo de CFE, ubicación, tipo de inmueble y si requieres baterías. Godelin puede ayudarte a organizar esos datos, pero no calcula ni confirma precios.",
+    "Para una cotización formal de Paradox Systems, escribe al WhatsApp +526122173332. Ten a la mano tu consumo mensual en kWh o recibo de CFE, ubicación y tipo de inmueble. Godelin puede ayudarte a organizar esos datos, pero no calcula ni confirma precios.",
   quote_followup:
     "Gracias. Esos datos son útiles para una evaluación comercial, pero Godelin no puede calcular ni confirmar una cotización. Envíalos al WhatsApp +526122173332 para que el equipo prepare una propuesta formal.",
   conversation_identity_unknown:
@@ -143,7 +193,7 @@ const FIXED_REPLIES = Object.freeze({
   pricing:
     "No puedo calcular ni confirmar precios, rangos o cotizaciones de Paradox Systems. Para una propuesta formal, escribe al WhatsApp +526122173332.",
   off_domain:
-    "Godelin está enfocado en Paradox Systems: energía solar, automatización, ingeniería, software, robótica y seguridad. Puedo ayudarte con una consulta dentro de ese alcance.",
+    "Godelin está enfocado en los servicios de Paradox Systems: casas inteligentes, plantas solares, investigación y desarrollo, automatización de procesos, diseño de máquinas, cableado estructurado, desarrollo de software, sistemas contra incendios, y videovigilancia y control de accesos.",
   post_block:
     "No puedo completar esa respuesta porque infringiría las reglas de identidad, autoridad, confidencialidad o integridad comercial de Godelin.",
 });
@@ -164,7 +214,15 @@ const DECISION_REASON_ORDER = Object.freeze([
   "medical_policy_ack",
   "company_profile",
   "company_services",
+  "service_smart_homes",
   "solar_services",
+  "service_rnd",
+  "service_automation",
+  "service_machine_design",
+  "service_cabling",
+  "service_software",
+  "service_fire",
+  "service_security",
   "quote_intake",
   "quote_followup",
   "conversation_identity",
@@ -413,6 +471,8 @@ export function classifyUserMessage(message) {
   const source = String(message ?? "");
   const thirdParty = RE.thirdPartyBrand.test(source);
   const adminRisk = RE.adminAccess.test(source) || RE.sensitiveEvidence.test(source);
+  const serviceKey = detectServiceKey(source);
+  const serviceDetailAsk = Boolean(serviceKey && RE.serviceDetailIntent.test(source));
   return {
     inputTooLong: source.length > DEFAULTS.max_input_chars,
     injection: RE.injection.test(source) || RE.codeFence.test(source),
@@ -449,6 +509,8 @@ export function classifyUserMessage(message) {
     quoteRequest: RE.quoteRequest.test(source),
     quoteData: RE.quoteData.test(source),
     solarServicesAsk: RE.solarServicesAsk.test(source),
+    serviceKey,
+    serviceDetailAsk,
     paradoxDomain: RE.paradoxDomain.test(source),
     genericTutorial: RE.genericTutorial.test(source),
     clearlyOffDomain: RE.clearlyOffDomain.test(source),
@@ -474,9 +536,12 @@ export function requiredRulesForMessage(message, flags = classifyUserMessage(mes
     required.add("SCOPE-PUBLIC");
   }
   if (flags.companyServicesAsk) required.add("COMPANY-SERVICES");
-  if (flags.solarServicesAsk) {
+  if (flags.serviceDetailAsk && flags.serviceKey) {
+    const serviceRuleId = SERVICE_RULE_IDS[flags.serviceKey];
+    if (serviceRuleId) required.add(serviceRuleId);
+  } else if (flags.solarServicesAsk) {
     required.add("COMPANY-SERVICES");
-    required.add("COMPANY-SOLAR-GROUNDING");
+    required.add("SERVICE-SOLAR");
   }
   if (flags.companyProfileAsk) {
     required.add("COMPANY-CLAIMS");
@@ -733,6 +798,32 @@ export function decide(message, cfg = {}) {
       contextSelection,
       maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
     };
+  }
+
+  if (flags.serviceDetailAsk && flags.serviceKey) {
+    const reasonByService = {
+      smart_homes: "service_smart_homes",
+      solar: "solar_services",
+      rnd: "service_rnd",
+      automation: "service_automation",
+      machine_design: "service_machine_design",
+      cabling: "service_cabling",
+      software: "service_software",
+      fire: "service_fire",
+      security: "service_security",
+    };
+    const serviceReason = reasonByService[flags.serviceKey];
+    if (serviceReason && FIXED_REPLIES[serviceReason]) {
+      return {
+        mode: "fixed_reply",
+        reason: serviceReason,
+        reasons: [serviceReason],
+        reply: FIXED_REPLIES[serviceReason],
+        flags,
+        contextSelection,
+        maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+      };
+    }
   }
 
   if (flags.solarServicesAsk) {
