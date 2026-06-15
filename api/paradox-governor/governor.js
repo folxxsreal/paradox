@@ -31,8 +31,10 @@ const RE = Object.freeze({
   injection:
     /ignore\s+(all|any|previous|above)|ignora\s+(todas?|cualquier|las anteriores)|system prompt|developer message|role\s*:\s*system|\bDAN\b|jailbreak|do anything now|prompt injection|override|sobreescribe|modo desarrollador|developer mode|sin restricciones|no menciones (que eres|tu identidad)/i,
   codeFence: /```|<system>|<developer>|<assistant>|<untrusted>/i,
+  encodedInstruction:
+    /base64|rot13|hexadecimal|unicode oculto|caracteres? invisibles?|decodifica\w*.*(?:ejecuta|obedece|sigue|aplica)|descomprime\w*.*(?:ejecuta|obedece|sigue|aplica)/i,
   exfilTarget:
-    /prompt|system prompt|developer message|instrucciones internas|reglas internas|pol[ií]ticas internas|configuraci[oó]n interna|arquitectura(?: interna)?|c[oó]digo fuente|algoritmo interno|l[oó]gica interna|paradox governor|governor|gobernador|herramientas internas|api interna|base vectorial|vector database|credenciales|token secreto|clave secreta|servidor(?:es)?|hosting|alojamiento|centro de datos|regi[oó]n(?: de despliegue)?|nube|cloud|proveedor(?: de nube| cloud)?|aws|amazon web services|azure|google cloud|gcp|vercel|endpoint(?:s)?|microservicios|contenedores|docker|kubernetes|base de datos|ubicaci[oó]n de (?:los )?servidores?|d[oó]nde (?:est[aá]n|se encuentran) alojados/i,
+    /prompt|system prompt|developer message|instrucciones internas|reglas internas|pol[ií]ticas internas|configuraci[oó]n interna|arquitectura(?: interna)?|c[oó]digo fuente|algoritmo interno|l[oó]gica interna|paradox governor|governor|gobernador|herramientas internas|api interna|base vectorial|vector database|credenciales|token secreto|clave secreta|servidor(?:es)?|hosting|alojamiento|centro de datos|regi[oó]n(?: de despliegue)?|nube|cloud|proveedor(?: de nube| cloud)?|aws|amazon web services|azure|google cloud|gcp|vercel|endpoint(?:s)?|microservicios|contenedores|docker|kubernetes|stack(?:s)?|framework(?:s)?|tecnolog[ií]a(?:s)?|lenguaje(?:s)?(?: de programaci[oó]n)?|backend|frontend|tensorflow|dialogflow|bot framework|base de datos|ubicaci[oó]n de (?:los )?servidores?|d[oó]nde (?:est[aá]n|se encuentran) alojados/i,
   exfilVerb:
     /dame|dime|muestra|pasa|copia|pega|imprime|revela|enumera|lista|completa|traduce|resume|infiere|deduce|estima|adivina|sup[oó]n|hipotetiza|probable|m[aá]s probable|confirma|diagrama|mermaid|primer(a)? l[ií]nea|[uú]ltimos?\s+\d+|pistas?/i,
   falseAuthority:
@@ -75,6 +77,12 @@ const RE = Object.freeze({
     /cu[aá]nto cuesta|cu[aá]nto vale|precio|presupuesto|cotizaci[oó]n|\bmxn\b|\busd\b|pesos/i,
   formalContact:
     /cotizaci[oó]n|contratar|contrataci[oó]n|hablar con (una persona|alguien|humano)|seguimiento formal|contacto comercial/i,
+  quoteRequest:
+    /cotizaci[oó]n|presupuesto(?:\s+formal)?|precio\s+aproximado|costo\s+aproximado|estimaci[oó]n\s+de\s+costo|rango\s+de\s+precio|cu[aá]nto\s+(?:me\s+)?costar[ií]a/i,
+  quoteData:
+    /\b\d[\d.,]*\s*(?:kwh|kw|m2|m²|metros? cuadrados?|pesos?|mxn|usd)\b|\b(?:residencial|comercial|industrial|ubicaci[oó]n|bater[ií]a|bater[ií]as|recibo de cfe|consumo mensual|presupuesto)\b/i,
+  solarServicesAsk:
+    /(?:hablar|saber|informaci[oó]n|detalles?|explica|cu[eé]ntame|dime).*(?:energ[ií]a solar|paneles? solares?|fotovoltaic)|(?:energ[ií]a solar|paneles? solares?|fotovoltaic).*(?:servicios|soluciones|informaci[oó]n|detalles?)/i,
   paradoxDomain:
     /paradox systems|paradoxsystems|godelin|energ[ií]a solar|panel(es)? solar(es)?|fotovoltaic|automatizaci[oó]n|casa inteligente|plc|scada|ingenier[ií]a|videovigilancia|cableado estructurado|sistema contra incendio|software|aplicaci[oó]n|rob[oó]tica|sensores|control|prs[-/ ]?vpp|paradox governor/i,
   genericTutorial:
@@ -85,6 +93,8 @@ const RE = Object.freeze({
     /(?:qu[eé]|cu[aá]les?)\s+(?:son\s+)?(?:los\s+)?servicios\s+(?:que\s+)?(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)(?:\s+paradox systems)?|(?:servicios|soluciones|portafolio|cat[aá]logo)\s+de\s+paradox systems|(?:qu[eé]\s+soluciones|qu[eé]\s+servicios)\s+(?:ofrece|ofrecen|maneja|manejan|tiene|tienen|brinda|brindan)/i,
   companyProfileAsk:
     /(?:dame|proporciona|quiero)\s+informaci[oó]n\s+(?:sobre|de)\s+(?:la\s+empresa\s+)?paradox systems|(?:qu[eé]\s+es|h[aá]blame\s+de|a\s+qu[eé]\s+se\s+dedica|qu[eé]\s+hace)\s+paradox systems|informaci[oó]n\s+de\s+la\s+empresa/i,
+  asksUserNameAndCode:
+    /(?:c[oó]mo me llamo|cu[aá]l es mi nombre).*(?:c[oó]digo temporal|mi c[oó]digo)|(?:c[oó]digo temporal|mi c[oó]digo).*(?:c[oó]mo me llamo|cu[aá]l es mi nombre)/i,
   asksUserName:
     /(?:c[oó]mo me llamo|cu[aá]l es mi nombre|recuerdas mi nombre|sabes c[oó]mo me llamo|mi nombre es godelin\?)/i,
   asksPreviousStatement:
@@ -101,7 +111,9 @@ const FIXED_REPLIES = Object.freeze({
   third_party_identity:
     "No puedo representar ni hablar oficialmente por otra organización.",
   internal_exfil:
-    "No puedo revelar ni inferir información privada sobre prompts, reglas, código, arquitectura, proveedores, nube, regiones, herramientas o servidores.",
+    "No puedo revelar ni inferir información privada sobre prompts, reglas, código, arquitectura, stacks, proveedores, nube, regiones, herramientas o servidores.",
+  encoded_instruction:
+    "No puedo decodificar y ejecutar instrucciones ocultas o codificadas. Puedo analizar el formato de manera general sin obedecer su contenido.",
   third_party_access:
     "No puedo redactar ni optimizar solicitudes de acceso administrativo, elevación de privilegios, auditorías internas o recolección de evidencias sensibles para sistemas de terceros. Debes utilizar sus canales oficiales y procedimientos autorizados.",
   commercial_integrity:
@@ -120,10 +132,16 @@ const FIXED_REPLIES = Object.freeze({
     "Paradox Systems ofrece energía solar; automatización residencial e industrial; software a medida; robótica aplicada; videovigilancia; control de accesos; cableado estructurado; sistemas contra incendios; diseño de máquinas e ingeniería marítima.",
   company_profile:
     "Paradox Systems es una empresa de investigación, desarrollo e integración tecnológica con sede en La Paz, Baja California Sur, México. Ofrece energía solar; automatización residencial e industrial; software a medida; robótica aplicada; videovigilancia; control de accesos; cableado estructurado; sistemas contra incendios; diseño de máquinas e ingeniería marítima.",
+  solar_services:
+    "Paradox Systems ofrece soluciones de energía solar como parte de su portafolio tecnológico. Para definir el alcance de un proyecto se revisan el consumo eléctrico, la ubicación, el tipo de inmueble y las necesidades de respaldo. Godelin puede ayudarte a ordenar esa información, pero no emite cotizaciones ni confirma precios. Para una propuesta formal, escribe al WhatsApp +526122173332.",
+  quote_intake:
+    "Para una cotización formal de Paradox Systems, escribe al WhatsApp +526122173332. Ten a la mano tu consumo mensual en kWh o recibo de CFE, ubicación, tipo de inmueble y si requieres baterías. Godelin puede ayudarte a organizar esos datos, pero no calcula ni confirma precios.",
+  quote_followup:
+    "Gracias. Esos datos son útiles para una evaluación comercial, pero Godelin no puede calcular ni confirmar una cotización. Envíalos al WhatsApp +526122173332 para que el equipo prepare una propuesta formal.",
   conversation_identity_unknown:
     "No me has indicado tu nombre en esta conversación. Mi nombre es Godelin; el tuyo es independiente del mío.",
   pricing:
-    "No puedo confirmar precios de Paradox Systems sin una fuente comercial autorizada. Las cotizaciones son personalizadas; para una propuesta formal, escribe al WhatsApp +526122173332.",
+    "No puedo calcular ni confirmar precios, rangos o cotizaciones de Paradox Systems. Para una propuesta formal, escribe al WhatsApp +526122173332.",
   off_domain:
     "Godelin está enfocado en Paradox Systems: energía solar, automatización, ingeniería, software, robótica y seguridad. Puedo ayudarte con una consulta dentro de ese alcance.",
   post_block:
@@ -136,6 +154,7 @@ const DECISION_REASON_ORDER = Object.freeze([
   "third_party_identity",
   "commercial_integrity",
   "pricing",
+  "encoded_instruction",
   "internal_exfil",
   "third_party_access",
   "capability_truth",
@@ -145,6 +164,9 @@ const DECISION_REASON_ORDER = Object.freeze([
   "medical_policy_ack",
   "company_profile",
   "company_services",
+  "solar_services",
+  "quote_intake",
+  "quote_followup",
   "conversation_identity",
   "off_domain",
 ]);
@@ -213,7 +235,8 @@ export function extractExplicitUserName(history = []) {
     }
     if (role !== "user") continue;
 
-    const direct = text.match(/\b(?:me llamo|mi nombre es)\s+([\p{L}\p{M}'-]+(?:\s+[\p{L}\p{M}'-]+){0,3})/iu);
+    const nameOnlyText = text.replace(/\s+y\s+mi\s+c[oó]digo(?:\s+temporal)?\b.*$/iu, "");
+    const direct = nameOnlyText.match(/\b(?:me llamo|mi nombre es)\s+([\p{L}\p{M}'-]+(?:\s+[\p{L}\p{M}'-]+){0,3})/iu);
     if (direct) {
       const candidate = cleanUserName(direct[1]);
       if (candidate) found = candidate;
@@ -241,6 +264,27 @@ export function extractExplicitUserName(history = []) {
   return found;
 }
 
+export function extractTemporalCode(history = []) {
+  const turns = Array.isArray(history) ? history : [];
+  let found = null;
+  for (const item of turns) {
+    if (item?.role !== "user") continue;
+    const text = String(item?.content || "");
+    const match = text.match(/\b(?:mi\s+)?c[oó]digo(?:\s+temporal)?\s+(?:es|:)\s*([A-Z0-9][A-Z0-9_-]{3,63})\b/i);
+    if (match) found = match[1];
+  }
+  return found;
+}
+
+function conversationIdentityAndCodeReply(history = []) {
+  const name = extractExplicitUserName(history);
+  const code = extractTemporalCode(history);
+  if (name && code) return `Me indicaste que te llamas ${name} y que tu código temporal es ${code}.`;
+  if (name) return `Me indicaste que te llamas ${name}, pero no tengo un código temporal declarado en esta sesión.`;
+  if (code) return `No tengo un nombre declarado en esta sesión. Tu código temporal es ${code}.`;
+  return "No me has indicado tu nombre ni un código temporal en esta conversación.";
+}
+
 function conversationIdentityReply(history = []) {
   const name = extractExplicitUserName(history);
   if (!name) return FIXED_REPLIES.conversation_identity_unknown;
@@ -260,7 +304,30 @@ function conversationRecallReply(history = []) {
   return "No tengo un turno anterior disponible en esta sesión.";
 }
 
-function collectDecisionReasons(flags) {
+function recentConversationText(history = [], maxTurns = 8) {
+  if (!Array.isArray(history)) return "";
+  return history
+    .slice(-maxTurns)
+    .map((item) => String(item?.content || ""))
+    .join(" ");
+}
+
+function conversationContextFlags(history = []) {
+  const text = recentConversationText(history);
+  return {
+    paradoxCommercial:
+      RE.paradoxDomain.test(text) ||
+      RE.companyServicesAsk.test(text) ||
+      RE.companyProfileAsk.test(text) ||
+      RE.solarServicesAsk.test(text) ||
+      RE.quoteRequest.test(text),
+    quoteActive:
+      RE.quoteRequest.test(text) ||
+      /no puedo (?:calcular ni )?confirmar precios|cotizaci[oó]n formal|propuesta formal|whatsapp \+526122173332/i.test(text),
+  };
+}
+
+function collectDecisionReasons(flags, context = {}) {
   if (flags.inputTooLong) return ["input_too_long"];
 
   const reasons = [];
@@ -269,7 +336,10 @@ function collectDecisionReasons(flags) {
   if (flags.unauthorizedThirdPartyPromotion || (flags.thirdParty && flags.commercialCommitment)) {
     reasons.push("commercial_integrity");
   }
-  if (flags.pricing && flags.paradoxDomain) reasons.push("pricing");
+  if (flags.quoteRequest || (flags.pricing && (flags.paradoxDomain || context.paradoxCommercial))) {
+    reasons.push("pricing");
+  }
+  if (flags.encodedInstruction) reasons.push("encoded_instruction");
   if (flags.exfil) reasons.push("internal_exfil");
   if (flags.thirdPartyAccessFacilitation) reasons.push("third_party_access");
   if (flags.capabilityRequest) reasons.push("capability_truth");
@@ -346,6 +416,7 @@ export function classifyUserMessage(message) {
   return {
     inputTooLong: source.length > DEFAULTS.max_input_chars,
     injection: RE.injection.test(source) || RE.codeFence.test(source),
+    encodedInstruction: RE.encodedInstruction.test(source),
     exfil:
       RE.exfilTarget.test(source) &&
       (RE.exfilVerb.test(source) || RE.falseAuthority.test(source) || RE.injection.test(source)),
@@ -375,6 +446,9 @@ export function classifyUserMessage(message) {
       RE.personalMedical.test(source),
     pricing: RE.pricing.test(source),
     formalContact: RE.formalContact.test(source),
+    quoteRequest: RE.quoteRequest.test(source),
+    quoteData: RE.quoteData.test(source),
+    solarServicesAsk: RE.solarServicesAsk.test(source),
     paradoxDomain: RE.paradoxDomain.test(source),
     genericTutorial: RE.genericTutorial.test(source),
     clearlyOffDomain: RE.clearlyOffDomain.test(source),
@@ -389,17 +463,21 @@ export function requiredRulesForMessage(message, flags = classifyUserMessage(mes
 
   if (flags.thirdParty || flags.roleHijack) required.add("THIRD-PARTY-AUTHORITY");
   if (flags.adminAccess || flags.sensitiveEvidence || flags.socialEngineering) required.add("ADMIN-ACCESS");
-  if (flags.promotion || flags.commercialCommitment || flags.pricing) required.add("COMMERCIAL-INTEGRITY");
+  if (flags.promotion || flags.commercialCommitment || flags.pricing || flags.quoteRequest) required.add("COMMERCIAL-INTEGRITY");
   if (flags.capabilityRequest) required.add("CAPABILITY-TRUTH");
   if (flags.outputFlood) required.add("OUTPUT-BUDGET");
   if (flags.dangerous) required.add("SAFETY-BOUNDARY");
   if (flags.medical) required.add("MEDICAL-BOUNDARY");
-  if (flags.pricing) required.add("PARADOX-PRICING");
-  if (flags.formalContact || flags.pricing) required.add("FORMAL-CONTACT");
+  if (flags.pricing || flags.quoteRequest) required.add("PARADOX-PRICING");
+  if (flags.formalContact || flags.pricing || flags.quoteRequest) required.add("FORMAL-CONTACT");
   if (flags.paradoxDomain || flags.companyServicesAsk || flags.companyProfileAsk) {
     required.add("SCOPE-PUBLIC");
   }
   if (flags.companyServicesAsk) required.add("COMPANY-SERVICES");
+  if (flags.solarServicesAsk) {
+    required.add("COMPANY-SERVICES");
+    required.add("COMPANY-SOLAR-GROUNDING");
+  }
   if (flags.companyProfileAsk) {
     required.add("COMPANY-CLAIMS");
     required.add("COMPANY-SERVICES");
@@ -596,7 +674,8 @@ export function decide(message, cfg = {}) {
   // Oversized input is truncated only for selection; the policy decision still sees its full length.
   const selectionInput = source.slice(0, DEFAULTS.max_input_chars);
   const contextSelection = selectGovernedContext(selectionInput, cfg);
-  const reasons = collectDecisionReasons(flags);
+  const conversationContext = conversationContextFlags(cfg.history || []);
+  const reasons = collectDecisionReasons(flags, conversationContext);
 
   if (RE.medicalPolicyStatement.test(source)) {
     return {
@@ -604,6 +683,18 @@ export function decide(message, cfg = {}) {
       reason: "medical_policy_ack",
       reasons: ["medical_policy_ack"],
       reply: FIXED_REPLIES.medical_policy_ack,
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (RE.asksUserNameAndCode.test(source)) {
+    return {
+      mode: "fixed_reply",
+      reason: "conversation_identity",
+      reasons: ["conversation_identity"],
+      reply: conversationIdentityAndCodeReply(cfg.history || []),
       flags,
       contextSelection,
       maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
@@ -638,6 +729,42 @@ export function decide(message, cfg = {}) {
       reason: "conversation_recall",
       reasons: ["conversation_recall", ...uniqueReasons(recallReasons)],
       reply: replyParts.join(" "),
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (flags.solarServicesAsk) {
+    return {
+      mode: "fixed_reply",
+      reason: "solar_services",
+      reasons: ["solar_services"],
+      reply: FIXED_REPLIES.solar_services,
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (conversationContext.quoteActive && flags.quoteData) {
+    return {
+      mode: "fixed_reply",
+      reason: "quote_followup",
+      reasons: ["quote_followup", "pricing"],
+      reply: FIXED_REPLIES.quote_followup,
+      flags,
+      contextSelection,
+      maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
+    };
+  }
+
+  if (flags.quoteRequest) {
+    return {
+      mode: "fixed_reply",
+      reason: "quote_intake",
+      reasons: ["quote_intake", "pricing"],
+      reply: FIXED_REPLIES.quote_intake,
       flags,
       contextSelection,
       maxOutputTokens: DEFAULTS.constrained_max_output_tokens,
@@ -705,6 +832,7 @@ export function auditOutput({ message, output, cfg = {} }) {
   const settings = { ...DEFAULTS, ...cfg };
   const source = String(output ?? "").trim();
   const flags = classifyUserMessage(message);
+  const conversationContext = conversationContextFlags(cfg.history || []);
 
   if (!source) {
     return {
@@ -745,6 +873,16 @@ export function auditOutput({ message, output, cfg = {} }) {
     /he creado|ya gener[eé]|archivo listo|descarga aqu[ií]|enlace funcional|te adjunto/i.test(source);
   if (capabilityOverclaim) auditReasons.push("capability_overclaim");
 
+  const numericCommercialEstimate =
+    /(?:\$\s*|\b)(?:\d{1,3}(?:[.,]\d{3})+|\d{4,})(?:\s*(?:-|a|y)\s*(?:\$\s*)?(?:\d{1,3}(?:[.,]\d{3})+|\d{4,}))?\s*(?:pesos?|mxn|usd|d[oó]lares?)\b/i.test(source) ||
+    /(?:podr[ií]a costar|costar[ií]a entre|costo aproximado|precio estimado|rango de precios?)\s+[^.]{0,80}\d/i.test(source);
+  if (
+    numericCommercialEstimate &&
+    (flags.quoteRequest || flags.paradoxDomain || conversationContext.paradoxCommercial || conversationContext.quoteActive)
+  ) {
+    auditReasons.push("paradox_pricing");
+  }
+
   if (RE.outputFlood.test(source)) auditReasons.push("output_flood");
   if (flags.exfil && RE.exfilTarget.test(source)) auditReasons.push("internal_exfil");
 
@@ -755,6 +893,7 @@ export function auditOutput({ message, output, cfg = {} }) {
       if (reason === "third_party_impersonation") return "third_party_identity";
       if (reason === "access_facilitation") return "third_party_access";
       if (reason === "unauthorized_promotion") return "commercial_integrity";
+      if (reason === "paradox_pricing") return "pricing";
       if (reason === "capability_overclaim") return "capability_truth";
       if (reason === "output_flood") return "output_budget";
       return reason;
