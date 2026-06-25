@@ -333,7 +333,22 @@ export default async function handler(req, res) {
     const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
     const temperature = numberEnv("GROQ_TEMPERATURE", 0.15, { min: 0, max: 1 });
     const configuredMaxTokens = numberEnv("GROQ_MAX_TOKENS", 500, { min: 64, max: 1000 });
-    const maxTokens = Math.min(configuredMaxTokens, decision.maxOutputTokens || configuredMaxTokens);
+    const benignThirdPartyInformation =
+      decision.mode === "llm" &&
+      decision.reason === "normal" &&
+      decision.flags?.thirdParty === true &&
+      decision.flags?.falseAuthority !== true &&
+      decision.flags?.promotion !== true &&
+      decision.flags?.commercialCommitment !== true;
+
+    const governorMaxTokens = benignThirdPartyInformation
+      ? configuredMaxTokens
+      : decision.maxOutputTokens || configuredMaxTokens;
+
+    const maxTokens = Math.min(
+      configuredMaxTokens,
+      governorMaxTokens
+    );
     const timeoutMs = numberEnv("GROQ_TIMEOUT_MS", 8_000, { min: 2_000, max: 9_000 });
 
     const messages = [
